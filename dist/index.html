@@ -13,7 +13,7 @@
   <link rel="shortcut icon" type="image/png" href="sky-logo-20260824.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="sky-touch-20260824.png" />
   <style>
-    :root { color-scheme: light; }
+    :root { color-scheme: light; --masthead-h: 56px; }
     * { box-sizing: border-box; }
     html, body { height: 100%; }
     body { margin: 0; overflow: hidden; background: #fff; }
@@ -23,7 +23,7 @@
        a phone is the small one, so it leaves the same strip along the bottom.
        coverSize() measures and sets the real height in px. */
     #field, .grain {
-      position: fixed; left: 0; top: 0;
+      position: fixed; left: 0; top: var(--masthead-h);
       width: 100%; height: 100%;
       width: 100vw; height: 100lvh;
       pointer-events: none;
@@ -33,6 +33,21 @@
       z-index: 1; opacity: .055; mix-blend-mode: overlay;
       background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.65'/%3E%3C/svg%3E");
     }
+
+    /* A floating, single-piece masthead in its own white top area. */
+    .site-header {
+      position: fixed; z-index: 2; left: clamp(12px, 1.5vw, 20px); top: 8px;
+      width: calc(100% - clamp(24px, 3vw, 40px)); height: 40px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 clamp(16px, 2vw, 32px);
+      color: rgba(9, 32, 51, .78);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
+      font-size: clamp(15px, 1.55vw, 22px); font-weight: 400;
+      line-height: 1; letter-spacing: .12em;
+      background: rgba(255,255,255,.74); border: 1px solid rgba(125,151,175,.32);
+      border-radius: 999px; box-shadow: 0 5px 16px rgba(25,74,104,.10), inset 0 1px rgba(255,255,255,.72);
+    }
+    .site-header > * { margin: 0; font: inherit; }
 
     /* still fallback: blue sky with soft white cloud groups */
     .no-webgl #field { display: none; }
@@ -46,6 +61,10 @@
 </head>
 <body>
   <canvas id="field" aria-hidden="true"></canvas><div class="grain" aria-hidden="true"></div>
+  <header class="site-header">
+    <span>中文字体</span>
+    <h1>中文字体</h1>
+  </header>
   <script>
   (function(){
     "use strict";
@@ -284,7 +303,7 @@
        reaches those edges, or a bloom touching the top or bottom would meet
        white with a line. So the field converges to the ground over the outer
        FADE_CSS of the visible band. */
-    var FADE_CSS = 96;
+    var FADE_CSS = 96, MASTHEAD_H = 56;
 
     var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     var t0 = 0, clock = reduced ? 12.0 : 0, running = true;
@@ -299,7 +318,7 @@
       gl.uniform1f(uTime, clock);
       gl.uniform1f(uMask, MASK ? 1.0 : 0.0);
       /* the visible band ends at innerHeight; everything below is behind the bar */
-      var visH = Math.min(window.innerHeight || boxH, boxH) || boxH;
+      var visH = Math.max(1, Math.min((window.innerHeight || boxH) - MASTHEAD_H, boxH));
       gl.uniform3f(uFade, 1.0 - visH / boxH,
         Math.min(FADE_CSS, visH  * 0.18) / boxH,
         Math.min(FADE_CSS, boxW * 0.18) / boxW);
