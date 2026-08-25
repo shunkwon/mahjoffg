@@ -50,7 +50,7 @@
     .site-nav { display: flex; align-items: center; gap: clamp(18px, 2.6vw, 48px); white-space: nowrap; }
     .site-nav span { display: inline-block; height: 1em; line-height: 1; background: #D9EFFB; }
     .site-nav span::before { content: attr(data-label); visibility: hidden; }
-    .site-languages { justify-self: end; display: flex; align-items: center; gap: 14px; color: rgba(16,24,32,.52); }
+    .site-languages { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 14px; color: rgba(16,24,32,.52); }
     .site-languages > * { margin: 0; font: inherit; }
     .site-languages .is-active { color: #1264db; border-bottom: 2px solid currentColor; padding-bottom: 5px; }
     @media (max-width: 900px) { .site-nav { display: none; } }
