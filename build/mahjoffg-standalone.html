@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <!-- The ground is white, the same white the browser paints its own status
+       bar and URL bar. Nothing has to chase anything: the bars, the page and
+       the edges of the picture are all the one colour, and the palette is a
+       set of diffuse blooms floating on top of it. -->
+  <meta name="theme-color" content="#ffffff" />
+  <title>Mahjoffg</title>
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAACXBIWXMAAAsTAAALEwEAmpwYAAAG40lEQVRIiaWW51cb5xLG9f+C6BbGtNBMsbGNZQhgnIRiG1baVa+rtgLRhBCSQJ0vF23vRf6cM1rutUmc4OSeM2fPUTnvb2fmmXley+ecHKvpgRtt7Uh8meCXYvxCjJ+PsjMhZszP2Nx0P0paHWQXctd10PoXYXmX5l1FlWga/mvtU1bezIivU8JijJuPcnNhZsJHDwODsjru/h3Dspzgtk6kwI1K3BqJhuG7Vvey0rs0MGYj7GSAeealhzCqz0n2OFrdyNfoOvh73p35B8t8lHse5daPBFdRSTUMotmOVnVHHlJZTvBzEXYiSD/z0TYP/cRNPXFRQy5y0EX2o8CzIuR/SQ9g3UjL6oDoRu4scISfmQoxq4c8VlDiDSPdNJINI1TW0StlNyttZoSVFP8iwS3h0JvpMPNTgBn10jY3Oeii+pxUJzOTcR9WpNWHUoMY1Y+SlpkQPeZlnnro6SCzdiigBQWvGqnGl3SznWoaeE3z32iOvLqblbaOxdVD4U2SfxHjnkfZqRAz7mdGPPQTwJBWpGVF7qzIXY8DTh9y0aM+etRLWcb99IiHHkKpp25qNsK+z4iuoorXdMIEVDX/tY5eqZ9zyvaZ9P5YXEuLKym+ozfAzISYUR817KIGUKjbAAY1HHZTYz56Nsws4KzFhtGD0EP4x5ifXk7wH7NyqKwlm/e1ilZ0b0lD8speVv71VNo6kTYy4s9HwluCX05wCzg7HWLGfPSIlxzxwbmTfmYqyMxF2OUEt3ooWHodZA8ohOxFyWdeutNw0ZFXwmU92elHuqkn60a4ovtKmqugogXFWVCQS3k3K28ci6+T0JjZMDMbYZ5H2Pkou4SzL+PcqwRvJ/itE9FitqX74D+9TnLYQ08G6cUYu5kRP+cUrKD6rtVoVTezIRrtVMNINHSIuhGtGK6C+tuZZCeE10l+JcXbCeEdIawd8hsZYeNIWM+I748BQJqytSJ3/Rj11EON+em5CPsywa4dCXtZ2V1SwhUdr+rxuh5vwDNR15PNdrpppDpiQy6VnTNp+0zaPpd2zuSdc3kvK3+8UHbOJTODr6NhRe4GMNqGQdunQ/TbFL9zLmNFJXCjhssQobIarqjRqobXjFgdBjN9247X9eCN5impnqKKFVXnlXqQVw8uVeRS+ZSTvwUAo8fRGsLocR89j7Orh8L2uYzkFXdJ9l8robIWLmt4TY9DoYxkE55Es00Aw4hUtXBFC96o7qLiyCvIJTzdReUPAGD0OckRDzUTYl7EOXta2DoRd7MScqm4ikrgWjUZyYZONA0CetNONdsxUIEautF8JdWRVz9dKOgVfMRr2p8B93kMoKTNTY3CkLOLOLeSEjYzws6ZeJBTXEU1WNYSdZiV9G2baBrxmhGtaOEyiAK9gghV9I4C298FmOsF9kwvSg6glM1FjfqYaSCxKyl+MyPuZSVPUY1VzVTaRONLvK7HaqCFaFWP1SC5ZMOI1/W/AnwldR+0YLc4yUEMSjcZAL0vJ7nNjOC8AoEl6vCynYqBtNJNyClSgbb7rr9fou+H1dHqcZqlg/06HaTfEvx+TvZdq3FgfEnfwqBEq4anpOxeSL+dSfu57zT50YTIboS0Olr9ncl/leC3z2RzfSUaeqQKS2XzWHyT4t+k+I3Mgzn4x2F1tIbd9CLOrWdguwRuNHdR/XAsLcW4qSAzE2KWYtz/BeiC2SSHMGoySK+mhf2csp+T7YQwEQAzH/bQ4wHGBJCdxP/nTXdd+/+M1OtoTfiB8cup+DLO2dx0r7PV7ySHXJRlACUHMWqg4z6mz8FvGDmAgYd0/XAqvU5yOsS8SYHL9qNk971xkpZpKBaY+1MPNQjnUjY3NR6gfwqC3fdhZNfj/n4fgxg5FQRv+PbNLJsZceNItKeEhSg3GaDHfWAXCzj3IsYuRNmJADvkur9PPIrpPmgNwpWA/vZLi7cErXdcKr+eSvY0/yoB8rKnhdU0eNZijJvwUzY32YeaFXuEYXVAnR8Akg0jUQdzD9zADvl0oexm5d1zeecMXP5tin8eYcf8987+ze3h7/rxAGAuRdgnYI06XjPCZbhJuArqxwv5/bG4khLmI+y4n7a5QQi9zs5N8se6AoBIVYtW9ERNN29d6U50Jl53l9TPOfnDiWgnhAUchDDmgyUx3FHhDzIsnpKKFVRvSQ2V9WgNzNbEpJrgId6Ssn8p/3Iq2Ql+CYc7xGKMnQszI16652Gt/xKA5NUdsFDZkVe8YL9a3NzAt23YLRXNW1L3O3lsZGCOPpxK7w6FRZwb8VAdaT0G2M3K6xnh50Pxw4lkrsbOrcu0KgOv6cEyyAwtqJ6SGrjRvCXt44W8fiQsxbgRN/1oP34HKOa14oymckMAAAAASUVORK5CYII=" />
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; overflow: hidden; background: #fff; }
+
+    /* Only the value before the script runs. lvh is NOT enough on its own:
+       it resolves against the viewport the browser currently reports, which on
+       a phone is the small one, so it leaves the same strip along the bottom.
+       coverSize() measures and sets the real height in px. */
+    #field, .grain {
+      position: fixed; left: 0; top: 0;
+      width: 100%; height: 100%;
+      width: 100vw; height: 100lvh;
+      pointer-events: none;
+    }
+    #field { display: block; z-index: 0; }
+    .grain {
+      z-index: 1; opacity: .055; mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.65'/%3E%3C/svg%3E");
+    }
+
+    /* still fallback: blue sky with soft white cloud groups */
+    .no-webgl #field { display: none; }
+    .no-webgl body {
+      background:
+        radial-gradient(64% 46% at 20% 24%, rgba(255,255,255,.96) 0 28%, transparent 70%),
+        radial-gradient(58% 52% at 82% 66%, rgba(255,255,255,.88) 0 24%, transparent 68%),
+        linear-gradient(145deg, #78bff0, #b8def7);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="field" aria-hidden="true"></canvas><div class="grain" aria-hidden="true"></div>
+  <script>
+  (function(){
+    "use strict";
+    var cv = document.getElementById('field');
+    var TEST = /[?&]test=1/.test(location.search);
+    var gl = cv.getContext('webgl2', {
+      alpha: false, antialias: false, preserveDrawingBuffer: TEST, powerPreference: 'low-power'
+    });
+    if (!gl) { document.documentElement.classList.add('no-webgl'); return; }
+
+    var VS = `#version 300 es
+    in vec2 a; void main(){ gl_Position = vec4(a,0.,1.); }`;
+
+    var FS = `#version 300 es
+    precision highp float;
+    out vec4 outColor;
+    uniform vec2  u_res;
+    uniform float u_time;
+    uniform vec3  u_fade;   /* x: canvas-y of the visible bottom edge,
+                               y: vertical fade width, z: horizontal fade width */
+
+    vec2 hash2(vec2 p){
+      p = vec2(dot(p, vec2(127.1,311.7)), dot(p, vec2(269.5,183.3)));
+      return -1.0 + 2.0*fract(sin(p)*43758.5453123);
+    }
+    float noise(vec2 p){
+      vec2 i = floor(p), f = fract(p);
+      vec2 u = f*f*f*(f*(f*6.0-15.0)+10.0);
+      return mix(mix(dot(hash2(i+vec2(0,0)), f-vec2(0,0)),
+                     dot(hash2(i+vec2(1,0)), f-vec2(1,0)), u.x),
+                 mix(dot(hash2(i+vec2(0,1)), f-vec2(0,1)),
+                     dot(hash2(i+vec2(1,1)), f-vec2(1,1)), u.x), u.y);
+    }
+    const mat2 M = mat2(0.80,0.60,-0.60,0.80);
+    float fbm3(vec2 p){
+      float s=0.0,a=0.5;
+      for(int i=0;i<3;i++){ s+=a*noise(p); p=M*p*2.03; a*=0.5; }
+      return s;
+    }
+
+    const vec3 GROUND   = vec3(1.000,1.000,1.000); /* cloud and browser white */
+    const vec3 SKY_DEEP = vec3(0.286,0.647,0.910);
+
+    void main(){
+      vec2 uv = gl_FragCoord.xy / u_res;
+      float ar = u_res.x / u_res.y;
+      /* 1.15 put barely two colour regions on screen, so the composition
+         depended on which blob happened to fall under the viewport. 1.75 shows
+         four to six — the density the reference sheet has.
+
+         That figure is set by the frame's SHORT side. A portrait phone at
+         ar 0.46 spans only 0.8 of a noise unit across at a fixed zoom, so it
+         lands on a single blob and the whole screen reads as one colour — in
+         practice, blue. Normalising on min(ar,1) keeps the short side at the
+         same 1.75 whatever the shape of the frame. The clamp stops very tall
+         windows from pushing the frequency up faster than the render scale
+         can carry it. */
+      float zoom = 1.75 / clamp(min(ar, 1.0), 0.66, 1.0);
+      vec2 p = vec2(uv.x*ar, uv.y) * zoom;
+      float t = u_time;
+
+      /* Restore the original fluid skeleton: two curl-like warps advect a
+         folded stream coordinate. Unlike periodic stripes, these bands vary
+         in width and direction while remaining long and connected. */
+      vec2 q = vec2(fbm3(p+vec2(0.00,0.07*t)),
+                    fbm3(p+vec2(5.2,1.3)-vec2(0.05*t,0.02*t)));
+      vec2 r = vec2(fbm3(p+1.85*q+vec2(1.7,9.2)+vec2(0.10*t,-0.04*t)),
+                    fbm3(p+1.85*q+vec2(8.3,2.8)-vec2(0.07*t,-0.05*t)));
+      vec2 flowP = p+vec2(1.35*r.x-0.55*r.y,
+                          0.88*r.y+0.38*r.x);
+      float flow = fbm3(flowP*0.92+vec2(0.055*t,-0.028*t));
+      float stream = p.y+0.34*p.x+0.92*r.x-0.64*r.y
+                   +0.18*sin(1.25*p.x+2.35*q.y-0.12*t);
+      float bands = 0.5+0.5*sin(3.55*stream+0.52*flow-0.13*t);
+      float ribbonTransition = smoothstep(0.08,0.92,bands);
+      float whiteRibbon = 4.0*ribbonTransition*(1.0-ribbonTransition);
+
+      vec3 c = mix(SKY_DEEP, GROUND, whiteRibbon * 0.60);
+      c = mix(c, GROUND, 0.055);
+
+      /* Dissolve into the ground at all four edges, so the palette reads as
+         blooms floating on white rather than a picture cropped to the frame.
+         Top and bottom also carry the join with the browser's own bars: a flat
+         bar cannot meet a gradient that varies across the width without a
+         seam, however well the colour is averaged, so the picture meets the
+         bar instead and both sides of the join are the same white. Below the
+         visible bottom edge the field is hidden behind the URL bar, so it
+         simply stays at the ground.
+
+         The width is capped against each axis. 96px off both sides of a 375px
+         phone would leave the blooms squeezed into a strip down the middle. */
+      float dTop   = (1.0 - uv.y) / u_fade.y;
+      float dBot   = (uv.y - u_fade.x) / u_fade.y;
+      float dLeft  = uv.x / u_fade.z;
+      float dRight = (1.0 - uv.x) / u_fade.z;
+      float k = 1.0 - clamp(min(min(dTop, dBot), min(dLeft, dRight)), 0.0, 1.0);
+      /* raised so the wash stays weak across most of the fade and only takes
+         over in the last stretch — a plain smoothstep over this width reads as
+         a heavy vignette. The exponent sits on top of smoothstep so the curve
+         still lands flat at the edge; a bare pow would leave a slope break
+         there, which is its own faint line. */
+      c = mix(c, GROUND, pow(smoothstep(0.0, 1.0, k), 2.2));
+
+      /* ordered dither — 8-bit output bands badly on ramps this slow */
+      float dz = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453);
+      c += (dz - 0.5) / 255.0 * 1.6;
+
+      outColor = vec4(c, 1.0);
+    }`;
+
+    function compile(type, src){
+      var s = gl.createShader(type);
+      gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.error(gl.getShaderInfoLog(s)); return null; }
+      return s;
+    }
+    var vs = compile(gl.VERTEX_SHADER, VS), fs = compile(gl.FRAGMENT_SHADER, FS);
+    if (!vs || !fs) { document.documentElement.classList.add('no-webgl'); return; }
+    var prog = gl.createProgram();
+    gl.attachShader(prog, vs); gl.attachShader(prog, fs);
+    gl.bindAttribLocation(prog, 0, 'a'); gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      console.error(gl.getProgramInfoLog(prog));
+      document.documentElement.classList.add('no-webgl'); return;
+    }
+    gl.useProgram(prog);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+    var uRes = gl.getUniformLocation(prog, 'u_res');
+    var uTime = gl.getUniformLocation(prog, 'u_time');
+    var uFade = gl.getUniformLocation(prog, 'u_fade');
+
+    var W = 0, H = 0, scale = 1;      /* drawing buffer */
+    var boxW = 0, boxH = 0;           /* the CSS box that buffer is stretched into */
+    function resize(){
+      /* Measure the canvas, not the window. innerHeight is the visual viewport
+         and drifts away from the element's own box while phone toolbars move,
+         and a backing store cut to a different aspect than the box it is
+         stretched into shows up as a distorted field. */
+      var box = coverSize();
+      var w = boxW = box.w, h = boxH = box.h;
+      /* budget device pixels, not a fixed fraction: a phone viewport is small
+         enough to render above 1× and still cost less than a desktop one, and
+         the extra pixels are what keep the tighter phone zoom smooth */
+      scale = Math.max(0.45, Math.min(devicePixelRatio || 1, 1.6, Math.sqrt(1500000 / Math.max(w*h, 1))));
+      var nw = Math.max(1, Math.round(w*scale)), nh = Math.max(1, Math.round(h*scale));
+      if (nw !== W || nh !== H) { W = cv.width = nw; H = cv.height = nh; gl.viewport(0, 0, W, H); }
+    }
+
+    /* ---- covering the screen ------------------------------------------
+       CSS viewport units are not trustworthy here. A fixed element is sized
+       against the *small* viewport on phones — toolbars showing — and 100lvh
+       is meant to fix that but does not land everywhere. So measure instead,
+       take the largest height any of the viewport notions reports, and never
+       shrink back within an orientation: once the toolbars retract, the layer
+       stays tall enough to cover them coming back.
+
+       screen's long side is the floor in portrait (short side in landscape),
+       which pre-empts the very first paint, before any toolbar has moved. It
+       is only trusted when it is close to what was measured, so a small window
+       on a large monitor does not get a canvas the size of the display. */
+    var grain = document.querySelector('.grain');
+    var coverH = 0, coverPortrait = null;
+
+    function coverSize(){
+      var vv = window.visualViewport;
+      var h = Math.max(
+        window.innerHeight || 0,
+        document.documentElement.clientHeight || 0,
+        vv ? Math.ceil(vv.height + (vv.offsetTop || 0)) : 0
+      );
+      var portrait = (window.innerHeight || 0) >= (window.innerWidth || 0);
+      if (portrait !== coverPortrait) { coverPortrait = portrait; coverH = 0; }
+
+      if (window.screen && screen.width && screen.height) {
+        var lo = Math.min(screen.width, screen.height);
+        var hi = Math.max(screen.width, screen.height);
+        var floor = portrait ? hi : lo;
+        if (floor > h && floor <= h * 1.35) h = floor;
+      }
+      if (h > coverH) coverH = h;
+
+      var w = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
+      cv.style.width = grain.style.width = w + 'px';
+      cv.style.height = grain.style.height = coverH + 'px';
+      return { w: w, h: coverH };
+    }
+
+    /* ---- meeting the browser's own bars --------------------------------
+       A phone browser draws its status bar and URL bar outside the page and
+       colours them from theme-color. Both are white here, and so is the
+       ground the palette blooms over, so there is nothing to keep in step —
+       an earlier build sampled the field and chased it with theme-color, and
+       a flat bar still met a picture that varies across its width, which is a
+       seam however well the colour is averaged.
+
+       The one thing still needed: the colour has to be gone by the time it
+       reaches those edges, or a bloom touching the top or bottom would meet
+       white with a line. So the field converges to the ground over the outer
+       FADE_CSS of the visible band. */
+    var FADE_CSS = 96;
+
+    var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var t0 = 0, clock = reduced ? 12.0 : 0, running = true;
+
+    function frame(now){
+      if (!running) return;
+      var dt = t0 ? Math.min((now - t0)/1000, 0.05) : 0.016;
+      t0 = now;
+      if (!reduced) clock += dt * 0.28;
+      resize();
+      gl.uniform2f(uRes, W, H);
+      gl.uniform1f(uTime, clock);
+      /* the visible band ends at innerHeight; everything below is behind the bar */
+      var visH = Math.min(window.innerHeight || boxH, boxH) || boxH;
+      gl.uniform3f(uFade, 1.0 - visH / boxH,
+        Math.min(FADE_CSS, visH  * 0.18) / boxH,
+        Math.min(FADE_CSS, boxW * 0.18) / boxW);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (!reduced) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+
+    /* phones fire resize as the toolbars slide; visualViewport catches the
+       cases that never raise a window resize at all */
+    function repaint(){ t0 = 0; requestAnimationFrame(frame); }
+    addEventListener('resize', repaint, { passive: true });
+    addEventListener('orientationchange', repaint, { passive: true });
+    if (window.visualViewport) visualViewport.addEventListener('resize', repaint, { passive: true });
+
+    document.addEventListener('visibilitychange', function(){
+      if (document.hidden) running = false;
+      else if (!running) { running = true; t0 = 0; requestAnimationFrame(frame); }
+    });
+
+    /* ?debug=1 — an on-device readout. Nothing here can inspect a phone, so
+       this is how a real device reports what it actually measured. */
+    if (/[?&]debug=1/.test(location.search)) {
+      var box = document.createElement('pre');
+      box.style.cssText = 'position:fixed;left:0;top:0;z-index:9;margin:0;padding:10px 12px;' +
+        'font:11px/1.5 ui-monospace,Menlo,monospace;color:#1c1a12;' +
+        'background:rgba(255,255,255,.82);white-space:pre;pointer-events:none';
+      document.body.appendChild(box);
+      var paint = function(){
+        var vv = window.visualViewport, r = cv.getBoundingClientRect();
+        box.textContent = [
+          'innerHeight       ' + window.innerHeight,
+          'clientHeight      ' + document.documentElement.clientHeight,
+          'visualViewport.h  ' + (vv ? Math.round(vv.height) + ' +off ' + Math.round(vv.offsetTop || 0) : 'n/a'),
+          'screen            ' + screen.width + '×' + screen.height,
+          'devicePixelRatio  ' + (window.devicePixelRatio || 1),
+          'lvh supported     ' + (window.CSS && CSS.supports ? CSS.supports('height', '100lvh') : '?'),
+          'canvas rect       ' + Math.round(r.width) + '×' + Math.round(r.height) +
+                                 ' @ ' + Math.round(r.left) + ',' + Math.round(r.top),
+          'canvas style      ' + cv.style.width + ' × ' + cv.style.height,
+          'drawing buffer    ' + cv.width + '×' + cv.height + '  (scale ' + scale.toFixed(2) + ')',
+          'gap at bottom     ' + Math.round(Math.max(0, window.innerHeight - r.bottom)) + 'px',
+          'bars outside page ' + Math.max(0, screen.height - window.innerHeight) + 'px (status + url bar)',
+          'theme-color       ' + (document.querySelector('meta[name="theme-color"]') || {getAttribute:function(){return 'none'}}).getAttribute('content'),
+          'reduced motion    ' + reduced,
+        ].join('\n');
+      };
+      paint();
+      addEventListener('resize', paint, { passive: true });
+      addEventListener('scroll', paint, { passive: true });
+      if (window.visualViewport) visualViewport.addEventListener('resize', paint, { passive: true });
+      setInterval(paint, 500);
+    }
+
+    /* read the framebuffer back so the field can be checked numerically */
+    window.__field = {
+      grid: function(cssX, cssY, cssW, cssH, nx, ny){
+        var x = Math.max(0, Math.round(cssX*scale)), w = Math.min(Math.max(1, Math.round(cssW*scale)), W-x);
+        var y = Math.max(0, Math.round(H - (cssY+cssH)*scale)), h = Math.min(Math.max(1, Math.round(cssH*scale)), H-y);
+        var px = new Uint8Array(w*h*4);
+        gl.readPixels(x, y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        var out = [];
+        for (var gy=0; gy<ny; gy++) for (var gx=0; gx<nx; gx++){
+          var x0=Math.floor(gx*w/nx), x1=Math.max(x0+1,Math.floor((gx+1)*w/nx));
+          var y0=Math.floor((ny-1-gy)*h/ny), y1=Math.max(y0+1,Math.floor((ny-gy)*h/ny));
+          var r=0,g=0,b=0,n=0;
+          for (var yy=y0; yy<y1; yy++) for (var xx=x0; xx<x1; xx++){
+            var i=(yy*w+xx)*4; r+=px[i]; g+=px[i+1]; b+=px[i+2]; n++;
+          }
+          out.push([Math.round(r/n), Math.round(g/n), Math.round(b/n)]);
+        }
+        return out;
+      },
+      /* step sizes between neighbouring device pixels. The max alone is one
+         outlier out of a million; the 99.9th percentile says whether the whole
+         ramp is smooth. */
+      steps: function(){
+        var px = new Uint8Array(W*H*4);
+        gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        var hist = new Int32Array(256), n = 0, m = 0;
+        for (var yy=0; yy<H; yy++) for (var xx=0; xx<W-1; xx++){
+          var i=(yy*W+xx)*4, j=i+4;
+          var d = Math.max(Math.abs(px[i]-px[j]), Math.abs(px[i+1]-px[j+1]), Math.abs(px[i+2]-px[j+2]));
+          hist[d]++; n++; if (d > m) m = d;
+        }
+        var cut = n * 0.999, acc = 0, p999 = 0;
+        for (var k=0; k<256; k++){ acc += hist[k]; if (acc >= cut){ p999 = k; break; } }
+        return { max: m, p999: p999, n: n };
+      },
+      /* fingerprint of the current frame, for proving nothing moved */
+      hash: function(){
+        var px = new Uint8Array(W*H*4);
+        gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        var a = 5381, b = 52711;
+        for (var i = 0; i < px.length; i += 401) { a = (a*33 ^ px[i]) >>> 0; b = (b*31 ^ px[i]) >>> 0; }
+        return a + ':' + b;
+      },
+      info: function(){
+        return { W:W, H:H, scale:scale, reduced:reduced, clock:clock,
+                 cssW: cv.clientWidth, cssH: cv.clientHeight };
+      }
+    };
+  })();
+  </script>
+</body>
+</html>

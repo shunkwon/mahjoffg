@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mahjoffg</title>
+  <meta name="description" content="Mahjoffg — hello@mahjoffg.com">
+  <meta name="theme-color" content="#f4f2e9">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,600;1,600&display=swap">
+  <style>
+    /* ---------------------------------------------------------------
+       Palette. Three light directions; the button in the nav cycles
+       them by swapping these four aurora colours.
+       --------------------------------------------------------------- */
+    :root {
+      color-scheme: light;
+      --paper:   #f4f2e9;
+      --ink:     #263027;
+      --ink-2:   #5c6659;
+      --ink-3:   #627061;
+      --brand:   #2e749e;   /* the pale pencil wordmark, deepened to read on paper */
+      --accent:  #c9680d;
+
+      --aurora-1: #f5d76e;  /* top-left    */
+      --aurora-2: #a5d4ae;  /* bottom-right */
+      --aurora-3: #b4dff0;  /* drifting orb */
+      --aurora-4: #e9a64a;  /* drifting orb */
+    }
+    body[data-light="tide"] {
+      --aurora-1: #b7d9f1; --aurora-2: #d7e4a5;
+      --aurora-3: #8fd0e8; --aurora-4: #f0b664;
+      --accent: #1f7ba6;
+    }
+    body[data-light="dusk"] {
+      --aurora-1: #f0b664; --aurora-2: #e7b7a4;
+      --aurora-3: #d7c1e8; --aurora-4: #d98352;
+      --accent: #b5490c;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      color: var(--ink);
+      background: var(--paper);
+      font: 14px/1.45 "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---------- atmosphere ---------- */
+    .aurora, .grain { position: fixed; inset: 0; pointer-events: none; }
+    .aurora { overflow: hidden; isolation: isolate; }
+    .aurora::before, .aurora::after, .orb {
+      content: ""; position: absolute; border-radius: 50%;
+      filter: blur(22px); will-change: transform;
+      transition: background .9s ease;
+    }
+    .aurora::before {
+      width: 66vmax; height: 66vmax; left: -26vmax; top: -31vmax;
+      background: var(--aurora-1); opacity: .48;
+      animation: drift-one 20s ease-in-out infinite alternate;
+    }
+    .aurora::after {
+      width: 62vmax; height: 62vmax; right: -27vmax; bottom: -30vmax;
+      background: var(--aurora-2); opacity: .56;
+      animation: drift-two 24s ease-in-out infinite alternate;
+    }
+    .orb.one {
+      width: 45vmax; height: 45vmax; left: 28vw; top: 15vh;
+      background: var(--aurora-3); opacity: .53; mix-blend-mode: multiply;
+      animation: drift-three 17s ease-in-out infinite alternate;
+    }
+    .orb.two {
+      width: 33vmax; height: 33vmax; right: 12vw; top: -22vmax;
+      background: var(--aurora-4); opacity: .31; mix-blend-mode: multiply;
+      animation: drift-four 28s ease-in-out infinite alternate;
+    }
+    .cursor-light {
+      position: absolute; width: 30vmax; height: 30vmax;
+      left: var(--cursor-x, 50%); top: var(--cursor-y, 50%);
+      border-radius: 50%; pointer-events: none; opacity: 0; filter: blur(30px);
+      background: radial-gradient(circle, rgba(255,255,246,.62) 0, rgba(250,209,103,.19) 30%, transparent 70%);
+      transform: translate(-50%, -50%);
+      transition: opacity .7s ease; mix-blend-mode: soft-light;
+      will-change: left, top;
+    }
+    body.is-pointing .cursor-light { opacity: 1; }
+    .grain {
+      opacity: .09; mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.65'/%3E%3C/svg%3E");
+    }
+
+    /* ---------- frame ---------- */
+    main {
+      position: relative; z-index: 1;
+      width: min(520px, calc(100% - 36px));
+      height: 100dvh; margin: 0 auto;
+      padding: 20px 0 24px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    nav {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      flex: none; animation: rise .7s both;
+    }
+    .brand {
+      display: block; width: clamp(132px, 20vw, 168px); aspect-ratio: 1000 / 381;
+      background-color: var(--brand);
+      -webkit-mask: url("wordmark-mask.png") no-repeat left center / contain;
+              mask: url("wordmark-mask.png") no-repeat left center / contain;
+      transition: background-color .9s ease;
+    }
+
+    .glass {
+      background: linear-gradient(135deg, rgba(255,255,255,.73), rgba(255,255,255,.34));
+      border: 1px solid rgba(255,255,255,.88);
+      box-shadow:
+        0 24px 56px rgba(77,83,54,.15),
+        inset 0 1px rgba(255,255,255,.9),
+        inset 0 0 28px rgba(255,255,255,.28);
+      backdrop-filter: blur(30px) saturate(108%);
+      -webkit-backdrop-filter: blur(30px) saturate(108%);
+    }
+
+    #shift {
+      display: inline-flex; align-items: center; gap: 9px;
+      padding: 9px 15px; border-radius: 999px;
+      color: var(--ink-2); font: 500 11px "DM Mono", ui-monospace, monospace;
+      letter-spacing: .12em; cursor: pointer;
+      transition: transform .25s, box-shadow .25s;
+    }
+    #shift:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(111,152,90,.26); }
+    #shift:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%; flex: none;
+      background: var(--aurora-4);
+      box-shadow: 0 0 14px var(--aurora-1);
+      transition: background .9s ease, box-shadow .9s ease;
+    }
+
+    /* ---------- the plate ---------- */
+    .plate {
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column;
+      padding: clamp(14px, 2.2vw, 24px);
+      border-radius: 28px; position: relative; overflow: hidden;
+      animation: rise .8s .1s both;
+    }
+    /* a soft light behind the bloom — sits under .plate-frame (z-index 1) */
+    .plate::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(50% 34% at 50% 33%, rgba(255,255,255,.52), rgba(255,255,255,0) 72%),
+        radial-gradient(78% 56% at 50% 33%, rgba(255,246,207,.20), rgba(255,246,207,0) 76%);
+    }
+    .plate-frame {
+      flex: 1; min-height: 0;
+      display: grid; place-items: center; position: relative; z-index: 1;
+    }
+    #painting { display: block; user-select: none; -webkit-user-select: none; }
+
+    .plate-foot {
+      flex: none; position: relative; z-index: 1;
+      margin-top: clamp(10px, 1.6vw, 16px);
+      padding-top: clamp(10px, 1.6vw, 14px);
+      border-top: 1px solid rgba(97,132,84,.18);
+      display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+    }
+    .caption {
+      color: var(--ink-3); font-size: 10px; letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .caption b { color: var(--ink-2); font-weight: 500; font-variant-numeric: tabular-nums; }
+    .mail {
+      color: var(--ink); text-decoration: none; white-space: nowrap;
+      font: 600 clamp(15px, 2.4vw, 19px)/1 "Playfair Display", Georgia, serif;
+      letter-spacing: -.4px;
+      border-bottom: 1px solid rgba(38,48,39,.24);
+      padding-bottom: 3px;
+      transition: color .25s, border-color .25s;
+    }
+    .mail:hover { color: var(--accent); border-color: currentColor; }
+    .mail:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 2px; }
+
+    noscript .mail { display: inline-block; margin: 24px auto; }
+
+    /* ---------- motion ---------- */
+    @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+    @keyframes drift-one   { 0% { transform: translate3d(0,0,0) scale(1); }        45% { transform: translate3d(25vw, 18vh, 0) scale(1.12); }  100% { transform: translate3d(8vw, 38vh, 0) scale(.92); } }
+    @keyframes drift-two   { 0% { transform: translate3d(0,0,0) scale(1); }        55% { transform: translate3d(-28vw, -24vh, 0) scale(.88); } 100% { transform: translate3d(-7vw, -43vh, 0) scale(1.1); } }
+    @keyframes drift-three { 0% { transform: translate3d(-18vw, 13vh, 0) scale(.82); } 52% { transform: translate3d(24vw, -18vh, 0) scale(1.14); } 100% { transform: translate3d(42vw, 27vh, 0) scale(.9); } }
+    @keyframes drift-four  { 0% { transform: translate3d(4vw, 0, 0) scale(.8); }   48% { transform: translate3d(-35vw, 36vh, 0) scale(1.2); }  100% { transform: translate3d(-54vw, 14vh, 0) scale(.85); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      /* .orb.one/.orb.two set the `animation` shorthand, so these selectors
+         must match their specificity or the play-state is overridden. */
+      .aurora::before, .aurora::after, .orb.one, .orb.two { animation-play-state: paused; }
+      .cursor-light { display: none; }
+      nav, .plate { animation: none; }
+      #shift { transition: none; }
+    }
+
+    /* ---------- small screens ---------- */
+    @media (max-width: 680px) {
+      body { overflow-y: auto; overflow-x: hidden; }
+      main { height: auto; min-height: 100dvh; width: min(100% - 24px, 760px); padding: 16px 0 22px; }
+      .plate { min-height: 74vh; }
+      .plate-foot { flex-direction: column; align-items: flex-start; gap: 6px; }
+      .mail { white-space: normal; padding: 7px 0 9px; }
+    }
+    @media (max-width: 380px) {
+      .brand { width: 116px; }
+      #shift { padding: 8px 11px; letter-spacing: .08em; }
+    }
+  </style>
+</head>
+<body data-light="dawn">
+  <div class="aurora">
+    <span class="orb one"></span>
+    <span class="orb two"></span>
+    <span class="cursor-light"></span>
+  </div>
+  <div class="grain"></div>
+
+  <main>
+    <nav>
+      <a class="brand" href="/" aria-label="Mahjoffg"></a>
+      <button type="button" id="shift" aria-live="polite">
+        <span class="dot" aria-hidden="true"></span><span id="shift-label">DAWN</span>
+      </button>
+    </nav>
+
+    <section class="plate glass">
+      <div class="plate-frame">
+        <canvas id="painting" role="img" aria-label="A daffodil, painted stroke by stroke in your browser"></canvas>
+      </div>
+      <footer class="plate-foot">
+        <span class="caption">Painted in-browser · <b id="dabs">—</b> dabs</span>
+        <a class="mail" href="mailto:hello@mahjoffg.com">hello@mahjoffg.com</a>
+      </footer>
+    </section>
+  </main>
+
+  <noscript>
+    <p style="text-align:center"><a class="mail" href="mailto:hello@mahjoffg.com">hello@mahjoffg.com</a></p>
+  </noscript>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------
+     Seeded RNG. The original page re-rolled the painting on every load;
+     a fixed seed keeps it stable so it survives a window resize and
+     behaves like a mark rather than a slot machine.
+     ------------------------------------------------------------------ */
+  const SEED = 0x9E3779B9;
+  let _s = SEED;
+  function rnd() {
+    _s |= 0; _s = (_s + 0x6D2B79F5) | 0;
+    let t = Math.imul(_s ^ (_s >>> 15), 1 | _s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+
+  const canvas = document.getElementById('painting');
+  const frame  = canvas.parentElement;
+  const ctx    = canvas.getContext('2d');
+
+  const jit = a => (rnd() - 0.5) * a;
+  function jc(hex, amt = 12) {
+    const r = parseInt(hex.slice(1, 3), 16) + Math.floor(jit(amt * 2));
+    const g = parseInt(hex.slice(3, 5), 16) + Math.floor(jit(amt * 2));
+    const b = parseInt(hex.slice(5, 7), 16) + Math.floor(jit(amt * 2));
+    const cl = v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0');
+    return '#' + cl(r) + cl(g) + cl(b);
+  }
+  function rgba(hex, a) {
+    return 'rgba(' + parseInt(hex.slice(1, 3), 16) + ','
+                   + parseInt(hex.slice(3, 5), 16) + ','
+                   + parseInt(hex.slice(5, 7), 16) + ',' + a + ')';
+  }
+  function dab(x, y, r, color, alpha) {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0,    rgba(color, alpha));
+    g.addColorStop(0.55, rgba(color, alpha * 0.85));
+    g.addColorStop(1,    rgba(color, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /* ---------- stroke generators (unchanged from the original page) ---------- */
+  function genStem(x1, y1, x2, y2, width, color, alpha, S) {
+    const out = [], len = Math.hypot(x2 - x1, y2 - y1);
+    const n = Math.floor(len / Math.max(2, 4 * S * 0.5));
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      out.push({
+        x: x1 + (x2 - x1) * t + jit(2.5 * S),
+        y: y1 + (y2 - y1) * t + jit(2 * S),
+        r: width * (1 - t * 0.15) * (0.85 + rnd() * 0.3),
+        color: jc(color, 10), alpha
+      });
+    }
+    return out;
+  }
+  function genLeaf(sx, sy, ex, ey, baseW, curve, color, alpha, S) {
+    const out = [], dx = ex - sx, dy = ey - sy, L = Math.hypot(dx, dy);
+    const px = -dy / L, py = dx / L;
+    const cxc = (sx + ex) / 2 + px * curve * L;
+    const cyc = (sy + ey) / 2 + py * curve * L;
+    const n = Math.max(60, Math.floor(L / Math.max(1.5, 2 * S)));
+    for (let i = 0; i <= n; i++) {
+      const t = i / n, u = 1 - t;
+      const x = u * u * sx + 2 * u * t * cxc + t * t * ex;
+      const y = u * u * sy + 2 * u * t * cyc + t * t * ey;
+      const wf = Math.sin(t * Math.PI * 0.85 + 0.15) * (1 - t * 0.35);
+      const r = baseW * wf;
+      if (r > 1) {
+        out.push({
+          x: x + jit(2 * S), y: y + jit(2 * S),
+          r: r * (0.85 + rnd() * 0.3),
+          color: jc(color, 12), alpha
+        });
+      }
+    }
+    return out;
+  }
+  function genPetal(cx, cy, angle, length, halfW, color, alpha, S) {
+    const out = [], ca = Math.cos(angle), sa = Math.sin(angle);
+    const lenSteps = Math.max(20, Math.floor(length / Math.max(2, 4 * S)));
+    for (let i = 0; i <= lenSteps; i++) {
+      const t = i / lenSteps;
+      const widthAtT = halfW * Math.sin(t * Math.PI) * (1 - t * 0.05);
+      const lx = cx + ca * length * t, ly = cy + sa * length * t;
+      const wSteps = Math.max(1, Math.floor(widthAtT / Math.max(2, 4 * S)));
+      for (let j = -wSteps; j <= wSteps; j++) {
+        const w = (j / wSteps) * widthAtT;
+        out.push({
+          x: lx - sa * w + jit(1.8 * S),
+          y: ly + ca * w + jit(1.8 * S),
+          r: (4 + rnd() * 3) * S,
+          color: jc(color, 10), alpha
+        });
+      }
+    }
+    return out;
+  }
+  function genEllipse(cx, cy, rx, ry, color, alpha, density, S) {
+    const out = [], n = Math.floor(rx * ry * density / Math.max(2, 5 * S));
+    for (let i = 0; i < n; i++) {
+      const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd());
+      out.push({
+        x: cx + Math.cos(a) * d * rx, y: cy + Math.sin(a) * d * ry,
+        r: (4 + rnd() * 3) * S,
+        color: jc(color, 12), alpha
+      });
+    }
+    return out;
+  }
+  function genTrumpetRim(cx, cy, rx, ry, color, alpha, S) {
+    const out = [], circ = 2 * Math.PI * (rx + ry) / 2;
+    const n = Math.max(60, Math.floor(circ / Math.max(2, 4 * S)));
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2, wob = 1 + Math.sin(a * 8) * 0.09;
+      out.push({
+        x: cx + Math.cos(a) * rx * wob + jit(2 * S),
+        y: cy + Math.sin(a) * ry * wob + jit(2 * S),
+        r: (5 + rnd() * 3) * S,
+        color: jc(color, 10), alpha
+      });
+    }
+    return out;
+  }
+
+  /* ------------------------------------------------------------------
+     Build the daffodil for a given box. No opaque background fill —
+     the frosted plate behind it is meant to show through.
+     ------------------------------------------------------------------ */
+  /* The original 600x800 design box left the flower floating in a lot of
+     dead air. DESIGN_W/H hug the actual ink (roughly x 70..310, y 75..545
+     in S units) with an even ~15% margin, and FCX/FCY re-centre it. */
+  const DESIGN_W = 380, DESIGN_H = 620, ASPECT = DESIGN_W / DESIGN_H;
+
+  function buildStrokes(W, H) {
+    _s = SEED;                       // same flower every time
+    const S = Math.min(W / DESIGN_W, H / DESIGN_H);
+    const fcx = W / 2 + 10 * S, fcy = 185 * S;
+    const stemTopY = fcy + 50 * S, stemBotY = fcy + 360 * S;
+    const strokes = [];
+    const add = d => strokes.push(d);
+
+    add(genStem(fcx, stemTopY, fcx - 8 * S, stemBotY, 9 * S, '#243018', 0.85, S));
+
+    add(genLeaf(fcx - 12 * S, stemBotY,          fcx - 130 * S, fcy -  50 * S, 16 * S,  0.30, '#2c4022', 0.85, S));
+    add(genLeaf(fcx + 18 * S, stemBotY - 10 * S, fcx + 110 * S, fcy -  80 * S, 14 * S, -0.28, '#324425', 0.85, S));
+    add(genLeaf(fcx -  5 * S, stemBotY +  5 * S, fcx -  60 * S, fcy + 180 * S, 12 * S,  0.50, '#3a4d2a', 0.80, S));
+
+    add(genStem(fcx,         stemTopY, fcx -  8 * S, stemBotY, 6.5 * S, '#3d5226', 0.7, S));
+    add(genStem(fcx - 4 * S, stemTopY, fcx - 12 * S, stemBotY, 3   * S, '#7a9550', 0.7, S));
+
+    add(genLeaf(fcx - 12 * S, stemBotY,          fcx - 130 * S, fcy - 50 * S, 8 * S,  0.30, '#5a7d3a', 0.5, S));
+    add(genLeaf(fcx + 18 * S, stemBotY - 10 * S, fcx + 110 * S, fcy - 80 * S, 7 * S, -0.28, '#5a7d3a', 0.5, S));
+
+    const angles = [];
+    for (let i = 0; i < 6; i++) angles.push(-Math.PI / 2 + i * Math.PI / 3 + jit(0.05));
+
+    for (let i = 0; i < 6; i++) add(genPetal(fcx, fcy, angles[i], (110 + jit(8)) * S, (32 + jit(4)) * S, '#d4b878', 0.55, S));
+    for (let i = 0; i < 6; i++) add(genPetal(fcx, fcy, angles[i], (105 + jit(6)) * S, (28 + jit(3)) * S, '#f4e4ad', 0.70, S));
+    for (let i = 0; i < 6; i++) add(genPetal(fcx, fcy, angles[i], 95 * S, 20 * S, '#fff7d8', 0.55, S));
+
+    add(genEllipse(fcx,        fcy,           24 * S, 19 * S, '#a94a08', 0.85, 2.2, S));
+    add(genEllipse(fcx,        fcy + 2 * S,   30 * S, 22 * S, '#e98220', 0.78, 2.0, S));
+    add(genEllipse(fcx - 5 * S, fcy - 4 * S,  18 * S, 13 * S, '#f5b042', 0.70, 1.6, S));
+    add(genTrumpetRim(fcx, fcy, 31 * S, 23 * S, '#c8500a', 0.7, S));
+
+    add([
+      { x: fcx - 6 * S, y: fcy - 2 * S, r: 3.2 * S, color: '#f8e068', alpha: 0.9 },
+      { x: fcx + 5 * S, y: fcy - 5 * S, r: 3.0 * S, color: '#f8e068', alpha: 0.9 },
+      { x: fcx + 1 * S, y: fcy + 5 * S, r: 3.0 * S, color: '#f8e068', alpha: 0.9 },
+      { x: fcx - 5 * S, y: fcy - 3 * S, r: 1.8 * S, color: '#fff5b8', alpha: 0.8 },
+      { x: fcx + 6 * S, y: fcy - 6 * S, r: 1.6 * S, color: '#fff5b8', alpha: 0.8 }
+    ]);
+
+    for (let i = 0; i < 6; i++) {
+      const a = angles[i];
+      const tx = fcx + Math.cos(a) * 95 * S, ty = fcy + Math.sin(a) * 95 * S;
+      const d = [];
+      for (let j = 0; j < 6; j++) {
+        d.push({ x: tx + jit(14 * S), y: ty + jit(14 * S), r: (2 + rnd() * 1.5) * S, color: '#ffffff', alpha: 0.4 });
+      }
+      add(d);
+    }
+
+    add([
+      { x: fcx - 9 * S, y: fcy - 7 * S, r: 4 * S, color: '#ffffff', alpha: 0.55 },
+      { x: fcx - 7 * S, y: fcy - 5 * S, r: 2 * S, color: '#ffffff', alpha: 0.85 }
+    ]);
+
+    return strokes;
+  }
+
+  /* ---------- fit the painting into whatever the plate gives us ---------- */
+  let lastKey = '';
+  function render() {
+    const availW = frame.clientWidth;
+    const availH = frame.clientHeight;
+    if (availW < 2 || availH < 2) return;
+
+    let W = availW, H = W / ASPECT;
+    if (H > availH) { H = availH; W = H * ASPECT; }
+    W = Math.round(W); H = Math.round(H);
+
+    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+    const key = W + 'x' + H + '@' + DPR;
+    if (key === lastKey) return;
+    lastKey = key;
+
+    canvas.style.width  = W + 'px';
+    canvas.style.height = H + 'px';
+    canvas.width  = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    const strokes = buildStrokes(W, H);
+    let n = 0;
+    for (const stroke of strokes) {
+      for (const d of stroke) { dab(d.x, d.y, d.r, d.color, d.alpha); n++; }
+    }
+    document.getElementById('dabs').textContent = n.toLocaleString('en-US');
+  }
+
+  render();
+  if ('ResizeObserver' in window) {
+    let raf = null;
+    new ResizeObserver(() => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => { raf = null; render(); });
+    }).observe(frame);
+  } else {
+    window.addEventListener('resize', render);
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+
+  /* ---------- light direction ---------- */
+  const LIGHTS = ['dawn', 'tide', 'dusk'];
+  const shift = document.getElementById('shift');
+  const shiftLabel = document.getElementById('shift-label');
+  shift.addEventListener('click', () => {
+    const next = LIGHTS[(LIGHTS.indexOf(document.body.dataset.light) + 1) % LIGHTS.length];
+    document.body.dataset.light = next;
+    shiftLabel.textContent = next.toUpperCase();
+  });
+
+  /* ---------- cursor light ---------- */
+  if (matchMedia('(pointer: fine)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    let raf = null, x = innerWidth / 2, y = innerHeight / 2;
+    const paint = () => {
+      document.documentElement.style.setProperty('--cursor-x', x + 'px');
+      document.documentElement.style.setProperty('--cursor-y', y + 'px');
+      raf = null;
+    };
+    addEventListener('pointermove', e => {
+      x = e.clientX; y = e.clientY;
+      document.body.classList.add('is-pointing');
+      if (!raf) raf = requestAnimationFrame(paint);
+    }, { passive: true });
+    addEventListener('pointerleave', () => document.body.classList.remove('is-pointing'));
+  }
+})();
+</script>
+</body>
+</html>
