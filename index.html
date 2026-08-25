@@ -38,7 +38,7 @@
        get a clear zone, leaving the sky field to begin below it. */
     .site-header {
       position: fixed; z-index: 2; left: 0; top: 0; width: 100%; height: var(--masthead-h);
-      display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+      display: flex; align-items: center;
       padding: 0 clamp(24px, 4vw, 72px); color: #101820;
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
       font-size: clamp(13px, 1.05vw, 16px); font-weight: 600; line-height: 1;
@@ -46,13 +46,6 @@
     }
     .site-header > * { margin: 0; font: inherit; }
     .site-brand { color: #101820; font-size: clamp(16px, 1.55vw, 22px); font-weight: 600; letter-spacing: -.03em; }
-    .site-nav { display: flex; align-items: center; gap: clamp(18px, 2.6vw, 48px); white-space: nowrap; }
-    .site-nav span { display: inline-block; height: 1em; line-height: 1; background: #D9EFFB; }
-    .site-nav span::before { content: attr(data-label); visibility: hidden; }
-    .site-languages { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 14px; color: rgba(16,24,32,.52); }
-    .site-languages > * { margin: 0; font: inherit; }
-    .site-languages .is-active { color: #1264db; border-bottom: 2px solid currentColor; padding-bottom: 5px; }
-    @media (max-width: 900px) { .site-nav { display: none; } }
 
     /* still fallback: blue sky with soft white cloud groups */
     .no-webgl #field { display: none; }
@@ -68,8 +61,6 @@
   <canvas id="field" aria-hidden="true"></canvas><div class="grain" aria-hidden="true"></div>
   <header class="site-header">
     <span class="site-brand">Mahjoffg</span>
-    <nav class="site-nav" aria-label="主导航"><span aria-label="关于我们" data-label="关于我们"></span><span aria-label="我们创造" data-label="我们创造"></span><span aria-label="我们的行动" data-label="我们的行动"></span><span aria-label="投资者" data-label="投资者"></span><span aria-label="新闻中心" data-label="新闻中心"></span><span aria-label="职业机会" data-label="职业机会"></span></nav>
-    <div class="site-languages" aria-label="语言"><span>简</span><span class="is-active">EN</span><h1>繁</h1></div>
   </header>
   <script>
   (function(){
