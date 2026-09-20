@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mahjoffg · 图标概念</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f4f6f8; color: #152534; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
+    main { max-width: 800px; padding: 24px; margin: auto; }
+    header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+    h1 { margin: 0; font-size: 18px; font-weight: 600; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+    button, select { font: inherit; color: inherit; padding: 8px 12px; background: white; border: 1px solid #ced7df; border-radius: 8px; }
+    button { cursor: pointer; }
+    button:disabled { cursor: wait; opacity: .5; }
+    canvas { width: 100%; height: auto; display: block; margin: 18px 0 12px; background: white; }
+    output { display: block; min-height: 24px; color: #506170; }
+  </style>
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Mahjoffg · 图标概念</h1>
+      <div class="controls">
+        <select id="palette" aria-label="配色"><option value="sky">钴蓝 / 冰白</option><option value="opal">冰蓝 / 深墨</option></select>
+        <select id="layout" aria-label="图标布局"><option value="tile">圆角底板</option><option value="mark">透明符号</option></select>
+        <button id="save" disabled>导出 PNG</button>
+      </div>
+    </header>
+    <canvas id="render" aria-label="立体折叠回环图标预览"></canvas>
+    <output id="status" aria-live="polite">正在渲染…</output>
+  </main>
+  <script type="module" src="./logo.mjs"></script>
+</body>
+</html>
