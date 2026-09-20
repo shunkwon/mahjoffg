@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
 
-const SHIP = ['index.html', 'sky-logo-20260824.png', 'sky-touch-20260824.png'];
+const SHIP = ['index.html', 'mahjoffg-eyes-20260920a-16.png', 'mahjoffg-eyes-20260920a-32.png', 'mahjoffg-eyes-20260920a-180.png'];
 
 rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist, { recursive: true });

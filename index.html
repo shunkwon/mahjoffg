@@ -9,9 +9,10 @@
        set of diffuse blooms floating on top of it. -->
   <meta name="theme-color" content="#ffffff" />
   <title>Mahjoffg</title>
-  <link rel="icon" type="image/png" sizes="32x32" href="sky-logo-20260824.png" />
-  <link rel="shortcut icon" type="image/png" href="sky-logo-20260824.png" />
-  <link rel="apple-touch-icon" sizes="180x180" href="sky-touch-20260824.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="mahjoffg-eyes-20260920a-16.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="mahjoffg-eyes-20260920a-32.png" />
+  <link rel="shortcut icon" type="image/png" href="mahjoffg-eyes-20260920a-32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="mahjoffg-eyes-20260920a-180.png" />
   <style>
     :root { color-scheme: light; --masthead-h: 60px; }
     * { box-sizing: border-box; }
@@ -22,17 +23,13 @@
        it resolves against the viewport the browser currently reports, which on
        a phone is the small one, so it leaves the same strip along the bottom.
        coverSize() measures and sets the real height in px. */
-    #field, .grain {
+    #field {
       position: fixed; left: 0; top: var(--masthead-h);
       width: 100%; height: 100%;
       width: 100vw; height: 100lvh;
       pointer-events: none;
     }
     #field { display: block; z-index: 0; }
-    .grain {
-      z-index: 1; opacity: .055; mix-blend-mode: overlay;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.65'/%3E%3C/svg%3E");
-    }
 
     /* A restrained corporate masthead: brand, navigation, and language each
        get a clear zone, leaving the sky field to begin below it. */
@@ -58,7 +55,7 @@
   </style>
 </head>
 <body>
-  <canvas id="field" aria-hidden="true"></canvas><div class="grain" aria-hidden="true"></div>
+  <canvas id="field" aria-hidden="true"></canvas>
   <header class="site-header">
     <span class="site-brand">Mahjoffg</span>
   </header>
@@ -144,7 +141,23 @@
       float ribbonTransition = smoothstep(0.08,0.92,bands);
       float whiteRibbon = 4.0*ribbonTransition*(1.0-ribbonTransition);
 
-      vec3 c = mix(SKY_DEEP, GROUND, whiteRibbon * 0.60);
+      /* The ribbon reaches 0.70 of the way to the ground white, not 0.60. At
+         0.60 the whole picture lived between #53AAE9 and #B9DDF3 — a peak-to-
+         peak of 130/255 in red and 10/255 in blue — and low contrast over a
+         spectrum with no high frequencies in it is one of the cues the eye
+         reads as "not in focus".
+
+         0.70 is a ceiling, not a taste. The blank-white check counts interior
+         pixels above 0.72 luminance whose chroma has fallen below 0.18, and
+         the ribbon's peak colour crosses that chroma line just past 0.70: at
+         0.80 the crests measure #DBEDFA, chroma 0.125, and 11% of the desktop
+         interior reads as colourless white holes rather than blue-white cloud.
+         At 0.70 the crests hold chroma 0.19 and the figure is 0% on every
+         viewport tested. Raising this further means giving up that rule.
+
+         The 0.055 wash toward the ground is kept: it is what stops the deep
+         blue from reading as a flat saturated field. */
+      vec3 c = mix(SKY_DEEP, GROUND, whiteRibbon * 0.70);
       c = mix(c, GROUND, 0.055);
 
       /* Dissolve into the ground at all four edges, so the palette reads as
@@ -243,8 +256,35 @@
       var w = boxW = box.w, h = boxH = box.h;
       /* budget device pixels, not a fixed fraction: a phone viewport is small
          enough to render above 1× and still cost less than a desktop one, and
-         the extra pixels are what keep the tighter phone zoom smooth */
-      scale = Math.max(0.45, Math.min(devicePixelRatio || 1, 1.6, Math.sqrt(1500000 / Math.max(w*h, 1))));
+         the extra pixels are what keep the tighter phone zoom smooth.
+
+         The ceiling is the display's own pixel ratio. It used to be a flat
+         1.6, which on a 2× screen meant the field was never drawn at native
+         resolution and was always stretched up — on a 390×844 phone the buffer
+         measured 624×1350, exactly 1.6×, with the budget term sitting at 2.13
+         and not binding. Only the budget should decide where the detail stops,
+         and above it there is no reason to draw fewer pixels than the screen
+         has. On a desktop window the budget still binds first (it reaches 1.6
+         only below ~590k CSS px of area), so this changes phones and small
+         windows, not large ones.
+
+         The budget itself is 2.0M device pixels, raised from 1.5M. That is
+         what a desktop window was actually limited by: at 1440x900 the old
+         budget put the buffer at 1.076x CSS, so on a 2x display the field was
+         drawn at barely over half the screen's resolution and bilinearly
+         stretched the rest of the way. 2.0M brings the same window to 1.24x.
+         Phones are unaffected — they are already at the dpr ceiling.
+
+         2.0M is the measured ceiling, not a round number. Timing rAF deltas
+         over 199 frames at 1440x900 on an M1 through Metal-backed ANGLE: 1.5M,
+         1.8M and 2.0M each drop zero frames, with p99 and max both 16.8ms.
+         2.2M drops one. 2.6M drops 8 to 17 frames per run over four runs, p99
+         33.4ms — a missed vsync every few dozen frames, which on a picture
+         whose whole subject is slow continuous drift is visible as a hitch.
+         Re-measure before raising this; the shader evaluates 18 noise octaves
+         per pixel, so cost is linear in the budget and nothing else caps it
+         (above ~2M CSS px of window the buffer sits at the budget exactly). */
+      scale = Math.max(0.45, Math.min(devicePixelRatio || 1, Math.sqrt(2000000 / Math.max(w*h, 1))));
       var nw = Math.max(1, Math.round(w*scale)), nh = Math.max(1, Math.round(h*scale));
       if (nw !== W || nh !== H) { W = cv.width = nw; H = cv.height = nh; gl.viewport(0, 0, W, H); }
     }
@@ -261,7 +301,6 @@
        which pre-empts the very first paint, before any toolbar has moved. It
        is only trusted when it is close to what was measured, so a small window
        on a large monitor does not get a canvas the size of the display. */
-    var grain = document.querySelector('.grain');
     var coverH = 0, coverPortrait = null;
 
     function coverSize(){
@@ -283,8 +322,8 @@
       if (h > coverH) coverH = h;
 
       var w = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
-      cv.style.width = grain.style.width = w + 'px';
-      cv.style.height = grain.style.height = coverH + 'px';
+      cv.style.width = w + 'px';
+      cv.style.height = coverH + 'px';
       return { w: w, h: coverH };
     }
 

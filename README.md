@@ -1,7 +1,9 @@
 # mahjoffg-glass
 
-mahjoffg.com is one thing: a fluid gradient field filling the viewport, with a
-grain overlay on top. No text, no panels, no pointer reactivity.
+mahjoffg.com is two things: a 60px white masthead carrying the brand name, and
+below it a fluid gradient field filling the rest of the viewport. No panels, no
+pointer reactivity. The masthead arrived on 2026-08-25; the grain overlay that
+used to sit on top of the field was removed in deployment `29ee0559`.
 
 The directory name is a leftover — the glass panel it refers to was removed on
 2026-08-24, along with the wordmark and the cursor light. The earlier versions
@@ -16,11 +18,11 @@ repetition, bright knots, or blunt cut ends.
 
 The palette contains only `#49A5E8` deep sky and `#FFFFFF` cloud/ground. There
 is no separate soft-sky colour or mask. The blue-white ribbons target a pooled
-balance of 85–90% deep blue and 10–15%
+balance of 75–82% deep blue and 18–25%
 blue-white. The tests also require no blank-white interior and less than 1%
 yellow or green across desktop, phone and tablet viewports.
 
-Four things in the shader are load-bearing, and each came out of a
+Five things in the shader are load-bearing, and each came out of a
 measurement, not a look:
 
 - **Warp gains stay low (2.0 and 1.6).** Domain warping multiplies each
@@ -36,16 +38,43 @@ measurement, not a look:
   portrait phone at `ar 0.46` spanned less than one noise unit across, landed
   on a single blob, and rendered as one flat colour — in practice blue at
   52%. Normalising holds four to six colour regions on screen at any shape.
-- **Render scale is a pixel budget, not a fraction**: `min(dpr, 1.6,
-  sqrt(1.5e6 / area))`. A phone viewport is small enough to render above 1×
-  and still cost fewer device pixels than a desktop one, and those extra
-  pixels are what keep the tighter phone zoom smooth.
+- **Render scale is a pixel budget, not a fraction**: `min(dpr, sqrt(2.0e6 /
+  area))`. A phone viewport is small enough to render above 1× and still cost
+  fewer device pixels than a desktop one, and those extra pixels are what keep
+  the tighter phone zoom smooth. The ceiling is the display's own pixel ratio;
+  a flat 1.6 sat there until 2026-09-20, which meant a 2× screen never drew the
+  field at native resolution — a 390×844 phone got a 624×1350 buffer stretched
+  up, with the budget term at 2.13 and not binding. The budget itself decides
+  everywhere above that, and it is set by measurement (see **Verification**).
+
+- **The white ribbon reaches 0.70 of the way to the ground, not 1.0.** Below
+  0.60 the picture spanned #53AAE9 to #B9DDF3 — 130/255 peak-to-peak in red,
+  10/255 in blue — and read as soft to the point of looking unfocused. Above
+  0.70 the crests lose their chroma instead of gaining brightness: at 0.80 they
+  measure #DBEDFA at chroma 0.125, and 11% of the desktop interior trips the
+  blank-white check as colourless holes. 0.70 holds chroma 0.19 at the crest
+  and 0% blank-white on every viewport.
 
 There is no simulated surface normal or specular light. An earlier fluid build
 derived normals with `dFdx` / `dFdy`; where the warped field compressed, its
 narrow highlights read as fabric-like creases. That pass was removed, leaving
-only colour advection and a reduced 0.055 grain overlay. Nothing on the page
-reads the pointer.
+only colour advection. A 0.055 `mix-blend-mode: overlay` grain layer sat on top
+until deployment `29ee0559`, whose only change was removing it. Nothing on the
+page reads the pointer.
+
+## The masthead
+
+A fixed white `<header class="site-header">`, `--masthead-h: 60px` tall, holding
+only `<span class="site-brand">Mahjoffg</span>` in the system font stack. The
+field starts below it (`#field { top: var(--masthead-h) }`), and the top edge of
+the picture dissolves into the same white the masthead is painted with.
+
+The height lives in two places that must agree: `--masthead-h` in the stylesheet
+and `MASTHEAD_H` in the script, which ends the shader's visible band at
+`innerHeight - MASTHEAD_H`. If they drift, the bottom fade lands on the wrong
+row; `verify.mjs` checks the two against the laid-out header. The canvas is
+still sized to the full cover height, so its last 60px hang below the viewport
+and stay at the ground.
 
 ## Covering the viewport on phones
 
@@ -72,7 +101,7 @@ So the cover layer is sized from JS instead, in `coverSize()`:
 - never shrink within an orientation: once the layer has been tall, it stays
   tall, so a toolbar coming back cannot re-open the gap. The high-water mark
   resets on an orientation change.
-- write the result to `style.width` / `style.height` in px on both layers
+- write the result to `style.width` / `style.height` in px on the canvas
 
 CSS keeps `100lvh` as the value before JS runs, and `viewport-fit=cover` is
 set. `visualViewport`'s resize event is wired up alongside `resize` and
@@ -186,7 +215,7 @@ a real device reports its own numbers instead of another round of guessing.
 
 ```sh
 python3 -m http.server 8788 --bind 127.0.0.1 &
-node test/verify.mjs                       # 113 checks, local
+node test/verify.mjs                       # 115 checks, local
 node test/verify.mjs https://mahjoffg.com  # same suite against the live site
 ```
 
@@ -197,16 +226,40 @@ leaves no WebGL2 and the page falls back to the still gradient.
 
 Nothing in this pipeline can look at a screenshot, so the field is checked by
 reading the framebuffer back (`window.__field`, enabled by `?test=1`, which
-the harness appends) and judging the numbers in node. Per viewport — desktop
-1440×900, iPhone 390×844, Android 360×740, tablet 768×1024:
+the harness appends) and judging the numbers in node. Readbacks are laid out
+against the **visible band** — from the canvas's top edge, under the masthead,
+to the bottom of the viewport — measured from the DOM rather than copied from
+`MASTHEAD_H`. Per viewport — desktop 1440×900, iPhone 390×844, Android 360×740,
+tablet 768×1024. Measured 2026-09-20 (SwiftShader):
 
 | check | desktop | iPhone 390×844 |
 |---|---|---|
-| covers the viewport, unstretched | 1440×900, aspect within 0.1% | 390×844, aspect within 0.1% |
-| luminance spread | 0.26 | 0.20 |
-| neighbouring-pixel step | p99.9 4/255, max 8/255 | p99.9 5/255, max 8/255 |
-| hue balance | yellow 51%, blue 9%, green 13% | yellow 34%, blue 14%, green 13% |
-| max chroma | 0.47 | 0.36 |
+| field under the masthead, unstretched | 1440×900 from y=60, band 1440×840, aspect within 0.1% | 390×844 from y=60, band 390×784, aspect within 0.1% |
+| backing store | 1789×1118 (1.24×) | 780×1688 (2.00×, native) |
+| luminance spread | 0.55 | 0.62 |
+| neighbouring-pixel step | p99.9 4/255, max 7/255 | p99.9 5/255, max 7/255 |
+| hue balance | blue 95%, yellow 0%, green 0% | blue 86%, yellow 0%, green 0% |
+| max chroma | 0.59 | 0.59 |
+| blank-white interior | 0% | 0% |
+
+Pooled over five viewports the tone balance reads deep blue 78.0–79.3% across
+repeat runs, against a 75–82% range.
+
+**Frame cost is measured on a GPU, not in the suite.** `verify.mjs` runs under
+SwiftShader and says nothing about speed. The render-scale budget was set by
+timing `requestAnimationFrame` deltas over 199 frames at 1440×900 in Chrome
+with Metal-backed ANGLE on an M1: 1.5M, 1.8M and 2.0M device pixels each drop
+zero frames with p99 and max at 16.8ms; 2.2M drops one; 2.6M drops 8–17 per run
+over four runs, p99 33.4ms. 2.0M is the ceiling that holds a flat 60fps, and
+raising it needs a fresh measurement, not an argument.
+
+**A run that stops early says so.** `EXPECTED` in `verify.mjs` is the number of
+checks a complete run records. Each block runs in its own `section()`, so a
+throw costs one failure rather than every section after it, and the tally
+reports the shortfall — `22/52 checks passed — 74 of 115 checks never ran (11
+sections aborted)`. Before this, a removed element made the suite print
+`7/10 checks passed` for weeks with 103 checks silently skipped. Adding or
+removing a check means updating `EXPECTED` and the count above.
 
 Three things about those numbers, each learned the hard way:
 
@@ -224,8 +277,9 @@ Three things about those numbers, each learned the hard way:
   `#F9F1DA` scores 0.72 and every check on it is meaningless. Chroma (max
   channel − min channel) is what the tests use.
 
-The suite also asserts the removals hold: no text renders, no `.glass` /
-`.hero` / `nav` / `.brand` / `.cursor-light` survives, and — under reduced
+The suite also asserts the removals hold: the only text is the masthead brand,
+no `.glass` / `.hero` / `nav` / `.brand` / `.cursor-light` / `.grain` survives,
+the masthead holds only `.site-brand`, and — under reduced
 motion, where the clock is frozen so any change could only come from the
 pointer — a four-point pointer sweep leaves the frame hash byte-identical.
 
@@ -252,7 +306,7 @@ publish all of that. `build/dist.mjs` copies only the four shipped files and
 fails if `index.html` references anything outside that set.
 
 `index.html` is fully self-contained — no webfonts, no external requests at
-all, since nothing on the page renders type any more.
+all; the masthead brand is set in the system font stack.
 
 ### Verifying the live site
 
@@ -270,7 +324,19 @@ redeploy a known-good directory.
 
 | deployment | what it is |
 |---|---|
-| `8e32af0b` | current — screenshot favicon moved to new cache-busting URLs for Safari/Chrome (2026-08-24) |
+| `475e2126` | current — 一筒 mahjong-tile favicon (`mahjoffg-tile-20260919a-*`, 16/32/180); differs from `2391503e` only in the favicon `<link>` lines (2026-09-19) |
+| `2391503e` | masthead page with the glow-M favicon, variant d (`mahjoffg-m-20260911d-*`); what `475e2126` replaced (2026-09-11) |
+| `7be4fd85` | glow-M favicon, variant c (`mahjoffg-m-20260911c-*`) (2026-09-11) |
+| `2cc77ca6` | glow-M favicon, variant b (`mahjoffg-m-20260911b-*`) (2026-09-11) |
+| `c7d0460e` | first glow-M favicon (`mahjoffg-m-20260911-*`); differs from `29ee0559` only in the favicon `<link>` lines |
+| `29ee0559` | grain overlay removed — differs from `2d89bea0` by that alone; this change is not in git |
+| `2d89bea0` | byte-identical to commit `dd38e15` "Simplify masthead" — brand-only masthead, grain still present |
+| `4c3fc017` | byte-identical to commit `594a530` "Simplify masthead brand" |
+| `6a2b08bb` | byte-identical to commit `5d6265f` "Fix mobile masthead layout" |
+| `a7052fe7` | byte-identical to commit `d0d0f75` "Refine masthead navigation" |
+| `41a09d3c` | byte-identical to commit `5ed0e73` "Add floating masthead" — first deployment with a masthead |
+| `358c6932` | byte-identical to commit `7df6eaf` "Initial Mahjoffg site" — first deployment with the multiplied corner veils and `?test=mask`; no masthead; the last page the 113-check suite was written for |
+| `8e32af0b` | screenshot favicon moved to new cache-busting URLs for Safari/Chrome (2026-08-24); byte-identical to `index_precorner_backup_20260824.html` |
 | `9c89d6dc` | screenshot favicon deployed under the old, heavily cached favicon URLs |
 | `ffcb1760` | branched, softly merged blue-white fluid bands on deep blue; no light-blue layer |
 | `91a47e72` | deep-blue and blue-white small cloud groups; soft-sky layer removed |
@@ -290,8 +356,13 @@ redeploy a known-good directory.
 | `dd55d9e3` | the CSS aurora backdrop it replaced |
 | `388ec6d9` | the daffodil page, before the glass redesign |
 
-This project is not under version control, so the previous pages are kept as
-files: `index_aurora_backup_20260824.html` (CSS aurora, wordmark, glass panel)
+Rows from `358c6932` up were identified by fetching each immutable deployment
+(`https://<id>.mahjoffg.pages.dev/`) and comparing bytes with git; wrangler's
+`Source` column is only the HEAD at deploy time and says nothing about a dirty
+working tree.
+
+The project has been under git since 2026-08-25 (`7df6eaf`). Pages older than
+that are kept as files: `index_aurora_backup_20260824.html` (CSS aurora, wordmark, glass panel)
 and `index-painting.html` (the earlier browser-painted daffodil direction, the
 only thing that uses `wordmark-mask.png`).
 
@@ -303,3 +374,23 @@ only thing that uses `wordmark-mask.png`).
   inlined, for previewing as one attachment. Not what gets deployed.
 - `dist/` — generated by `build/dist.mjs`; the only thing that gets deployed.
   Safe to delete, it is rebuilt on demand.
+- `concepts/eyes/` — zero-dependency generator for the **current** favicon, a
+  pair of eyes: two `#49A5E8` discs on the ground white (`node make-favicon.mjs`
+  writes `out/` and checks what it wrote). The three `mahjoffg-eyes-20260920a-*`
+  PNGs in the project root are byte-identical copies of its output, and they
+  are what `build/dist.mjs` ships. It inverts the earlier icons — there the
+  mark was white on a sky chip, here the mark *is* the blue, so the chip is the
+  white the page and the browser's bars already are. On a light tab the chip
+  disappears and only the eyes are left; on a dark one it carries them.
+
+  Geometry: discs of r 4 centred at x=10 and x=22 in the shared 32-unit space,
+  so all four disc edges (6, 14, 18, 26) are even and each dot keeps its exact
+  width at 16px as well as 32px. r 5 and dx 7 both put odd edges on a dot that
+  is only 4px across at 16px; r 6 needs dx 8 and then the discs foul the chip's
+  corners. Beyond the usual per-pixel assertions the checks flood-fill the ink
+  and require exactly **two** equal blobs the drawn distance apart — the one
+  thing the icon has to be, and nothing else would catch a pair that merged.
+
+- `concepts/ribbon-m/`, `concepts/tile-favicon/`, `concepts/three-logo*/` —
+  superseded favicon directions, each with its own generator and checks. Their
+  PNGs are still in the project root but nothing references them.

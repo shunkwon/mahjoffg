@@ -1,12 +1,13 @@
 /**
  * Zero-dependency DOM/render verification for mahjoffg.com.
  *
- * The page is one thing: a WebGL2 gradient field filling the viewport, with a
- * grain overlay on top. No text, no panels, no pointer reactivity. So the
- * checks are mostly geometry (does it actually cover the screen, at the aspect
- * it is drawn at) and framebuffer readbacks (is it a smooth diffuse gradient
- * in the intended palette). Nothing here can look at a screenshot, so every
- * claim is a measurement.
+ * The page is two things: a white masthead carrying the brand name, and below
+ * it a WebGL2 gradient field filling the rest of the viewport. No panels, no
+ * pointer reactivity. So the checks are mostly geometry (does the field
+ * actually cover the screen below the masthead, at the aspect it is drawn at)
+ * and framebuffer readbacks (is it a smooth diffuse gradient in the intended
+ * palette). Nothing here can look at a screenshot, so every claim is a
+ * measurement.
  *
  * Drives headless Chrome over the DevTools Protocol using Node's built-in
  * WebSocket (Node >= 21).
@@ -22,8 +23,25 @@ const BASE = process.argv[2] || 'http://127.0.0.1:8788';
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const PORT = 9333;
 
+/* How many checks a complete run records. On 2026-09-19 this suite had been
+   printing "7/10 checks passed" for weeks: an element it dereferenced had been
+   removed from the page, the exception ended the run in the first section, and
+   nothing in the output said that 103 checks had never executed. The summary
+   now compares against this number, so a truncated run cannot look like a
+   small one. Adding or removing a check means changing it (and the README). */
+const EXPECTED = 115;
+
 const results = [];
 const check = (name, cond, detail = '') => results.push({ pass: !!cond, name, detail });
+
+/* A section that throws costs its own remaining checks and one failure — not
+   every section after it. Page-side probes below are null-safe for the same
+   reason: a missing element should fail the check that is about it. */
+let aborted = 0;
+async function section(name, fn) {
+  try { await fn(); }
+  catch (err) { aborted++; results.push({ pass: false, abort: true, name: `${name}: section ran to the end`, detail: err.message }); }
+}
 
 /* colour maths for judging framebuffer readbacks in node */
 const lin = v => ((v /= 255) <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
@@ -82,6 +100,17 @@ async function connect() {
   throw new Error('could not attach to Chrome');
 }
 
+/* An unreachable BASE would otherwise cost a 30s CDP timeout in every
+   section. A 200 here proves the origin answers, nothing more — the live
+   origin answers 200 text/html for any path. */
+try {
+  const r = await fetch(BASE + '/index.html', { signal: AbortSignal.timeout(8000) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+} catch (err) {
+  console.log(` FAIL  ${BASE} is reachable   → ${err.message}\n\n0/1 checks passed — none of the ${EXPECTED} checks ran`);
+  process.exit(1);
+}
+
 const chrome = spawn(CHROME, [
   '--headless=new', `--remote-debugging-port=${PORT}`,
   '--no-first-run', '--no-default-browser-check', '--hide-scrollbars',
@@ -98,6 +127,14 @@ try {
   await cdp.send('Page.enable');
   await cdp.send('Log.enable');
   await cdp.send('Network.enable');
+  /* The profile at --user-data-dir persists between runs, and python's
+     http.server sends Last-Modified with no max-age, so Chrome applies
+     heuristic freshness and serves index.html from disk. A run then measures
+     the previous version of the shader and reports it as a pass: on
+     2026-09-20 a changed render scale and ribbon white both came back with the
+     old numbers, 115/115, and the only tell was that the backing store had not
+     moved. Nothing here is a cache test, so switch the cache off. */
+  await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
 
   async function load(width, height, mobile = false, reducedMotion = false, screen = null, test = '1') {
     cdp.events.length = 0;
@@ -126,12 +163,25 @@ try {
     .filter(e => e.method === 'Network.responseReceived' && e.params.response.status >= 400)
     .map(e => e.params.response.status + ' ' + e.params.response.url);
 
-  /* geometry of the canvas against the viewport it has to fill */
+  /* The masthead takes the top of the viewport, so the VISIBLE band of the
+     field runs from the canvas's own top edge down to the bottom of the
+     viewport. window.__field.grid() takes canvas coordinates, so every
+     readback below is laid out against this band, not against innerHeight —
+     the canvas rows past it hang below the viewport and are always ground.
+
+     It is measured from where the canvas actually sits, not copied from the
+     MASTHEAD_H the page's script uses: if the stylesheet and the script ever
+     disagree, the shader fades to the wrong row and the seam checks are what
+     should notice. */
+  const BAND = `(() => { const r = document.getElementById('field').getBoundingClientRect();
+    return { w: r.width, h: Math.max(1, Math.min(innerHeight - r.top, r.height)) }; })()`;
+
+  /* geometry of the canvas against the masthead and the viewport it has to fill */
   const coverage = () => cdp.eval(`(() => {
     const el = document.getElementById('field'), r = el.getBoundingClientRect();
-    const g = document.querySelector('.grain').getBoundingClientRect();
+    const m = document.querySelector('.site-header'), mr = m && m.getBoundingClientRect();
     return { l: r.left, t: r.top, w: r.width, h: r.height,
-             grainW: g.width, grainH: g.height,
+             mast: mr ? { l: mr.left, t: mr.top, w: mr.width, h: mr.height, b: mr.bottom } : null,
              vw: innerWidth, vh: innerHeight,
              docW: document.documentElement.scrollWidth,
              docH: document.documentElement.scrollHeight,
@@ -140,20 +190,22 @@ try {
   })()`);
 
   function checkCoverage(label, c) {
-    check(`${label}: field starts at the viewport origin`,
-      c.l <= 0.5 && c.t <= 0.5, `left ${c.l}, top ${c.t}`);
+    const m = c.mast;
+    check(`${label}: masthead spans the top of the viewport`,
+      !!m && m.l <= 0.5 && m.t <= 0.5 && m.w >= c.vw - 0.5 && m.h >= 1,
+      m ? `${m.w}×${m.h} at ${m.l},${m.t}` : 'no .site-header');
+    check(`${label}: field begins where the masthead ends`,
+      !!m && c.l <= 0.5 && Math.abs(c.t - m.b) <= 0.5,
+      `field left ${c.l}, top ${c.t}; masthead bottom ${m ? m.b : 'n/a'}`);
     check(`${label}: field reaches both far edges`,
       c.l + c.w >= c.vw - 0.5 && c.t + c.h >= c.vh - 0.5,
-      `covers ${c.w}×${c.h} of ${c.vw}×${c.vh}`);
-    check(`${label}: grain overlay covers the same box`,
-      Math.abs(c.grainW - c.w) <= 1 && Math.abs(c.grainH - c.h) <= 1,
-      `${c.grainW}×${c.grainH} vs ${c.w}×${c.h}`);
+      `covers ${c.w}×${c.h} from ${c.l},${c.t} of ${c.vw}×${c.vh}`);
     // a backing store cut to a different aspect than the box it is stretched
     // into is a visibly distorted field, and it is invisible in a DOM dump
-    const boxAR = c.w / c.h, storeAR = c.store.W / c.store.H;
+    const boxAR = c.w / c.h, storeAR = c.store ? c.store.W / c.store.H : NaN;
     check(`${label}: field is not stretched (backing store matches its box)`,
       Math.abs(boxAR - storeAR) / boxAR < 0.02,
-      `box ${boxAR.toFixed(3)} vs store ${storeAR.toFixed(3)} (${c.store.W}×${c.store.H})`);
+      c.store ? `box ${boxAR.toFixed(3)} vs store ${storeAR.toFixed(3)} (${c.store.W}×${c.store.H})` : 'no window.__field');
     check(`${label}: nothing scrolls`,
       c.docW <= c.vw + 1 && c.docH <= c.clientH + 1,
       `doc ${c.docW}×${c.docH}, viewport ${c.vw}×${c.clientH}`);
@@ -167,7 +219,8 @@ try {
     const samples = [];
     for (let i = 0; i < 4; i++) {
       if (i) await sleep(1200);
-      samples.push(await cdp.eval(`window.__field.grid(0, 0, innerWidth, innerHeight, 26, 16)`));
+      samples.push(await cdp.eval(`(() => { const band = ${BAND};
+        return window.__field.grid(0, 0, band.w, band.h, 26, 16); })()`));
     }
     const field = samples[0];
     const Ls = field.map(lum);
@@ -211,8 +264,8 @@ try {
     // few points. Keep each crop close, then enforce the exact art-direction
     // ranges on the pooled desktop/phone/tablet field below.
     check(`${label}: tone crop stays near the prescribed balance`,
-      deepBlue >= 0.80 && deepBlue <= 0.95 &&
-      blueWhite >= 0.05 && blueWhite <= 0.20,
+      deepBlue >= 0.72 && deepBlue <= 0.87 &&
+      blueWhite >= 0.13 && blueWhite <= 0.28,
       toneBalance);
     check(`${label}: never out-saturates its own source colours`,
       Math.max(...cells.map(p => p.c)) <= 0.80,
@@ -220,150 +273,188 @@ try {
   }
 
   /* ================= DESKTOP ================= */
-  await load(1440, 900);
+  await section('desktop page', async () => {
+    await load(1440, 900);
 
-  check('desktop: no console errors', consoleErrors().length === 0, consoleErrors().join(' | '));
-  check('desktop: no failed requests', failedRequests().length === 0, failedRequests().join(' | '));
-  check('title is still the brand name', await cdp.eval(`document.title`) === 'Mahjoffg');
+    check('desktop: no console errors', consoleErrors().length === 0, consoleErrors().join(' | '));
+    check('desktop: no failed requests', failedRequests().length === 0, failedRequests().join(' | '));
+    check('title is still the brand name', await cdp.eval(`document.title`) === 'Mahjoffg');
 
-  /* everything but the backdrop is gone */
-  const stripped = await cdp.eval(`(() => ({
-    text: document.body.innerText.trim(),
-    glass: document.querySelectorAll('.glass, .hero').length,
-    nav: document.querySelectorAll('nav, main, .brand').length,
-    cursor: document.querySelectorAll('.cursor-light, .aurora, .orb').length,
-    // Cloudflare injects its bot-management script and a hidden 1×1 iframe on
-    // the live origin, so judge only what actually paints
-    elements: [...document.body.children]
-      .filter(el => el.tagName !== 'SCRIPT')
-      .filter(el => { const r = el.getBoundingClientRect(); return r.width > 2 && r.height > 2; })
-      .map(el => el.tagName + (el.className ? '.' + el.className : '')),
-    fonts: [...document.querySelectorAll('link[href*="fonts."], style')].some(
-      el => /fonts\\.googleapis/.test(el.href || el.textContent || '')),
-  }))()`);
-  check('page renders no text at all', stripped.text === '', JSON.stringify(stripped.text));
-  check('the glass panel is gone', stripped.glass === 0, stripped.glass + ' found');
-  check('nav, main and wordmark are gone', stripped.nav === 0, stripped.nav + ' found');
-  check('cursor light and the old aurora layers are gone', stripped.cursor === 0, stripped.cursor + ' found');
-  check('body holds only the canvas and the grain',
-    stripped.elements.join(', ') === 'CANVAS, DIV.grain', stripped.elements.join(', '));
-  check('no webfont request remains (nothing renders type)', !stripped.fonts);
+    /* everything but the masthead and the backdrop is gone */
+    const stripped = await cdp.eval(`(() => ({
+      text: document.body.innerText.trim(),
+      glass: document.querySelectorAll('.glass, .hero').length,
+      nav: document.querySelectorAll('nav, main, .brand').length,
+      cursor: document.querySelectorAll('.cursor-light, .aurora, .orb').length,
+      grain: document.querySelectorAll('.grain').length,
+      // Cloudflare injects its bot-management script and a hidden 1×1 iframe on
+      // the live origin, so judge only what actually paints
+      elements: [...document.body.children]
+        .filter(el => el.tagName !== 'SCRIPT')
+        .filter(el => { const r = el.getBoundingClientRect(); return r.width > 2 && r.height > 2; })
+        .map(el => el.tagName + (el.className ? '.' + el.className : '')),
+      fonts: [...document.querySelectorAll('link[href*="fonts."], style')].some(
+        el => /fonts\\.googleapis/.test(el.href || el.textContent || '')),
+    }))()`);
+    check('the only text on the page is the masthead brand', stripped.text === 'Mahjoffg', JSON.stringify(stripped.text));
+    check('the glass panel is gone', stripped.glass === 0, stripped.glass + ' found');
+    check('nav, main and the hero wordmark are gone', stripped.nav === 0, stripped.nav + ' found');
+    check('cursor light and the old aurora layers are gone', stripped.cursor === 0, stripped.cursor + ' found');
+    check('the grain overlay is gone', stripped.grain === 0, stripped.grain + ' found');
+    check('body holds only the field and the masthead',
+      stripped.elements.join(', ') === 'CANVAS, HEADER.site-header', stripped.elements.join(', '));
+    check('no webfont is requested (the masthead is set in system fonts)', !stripped.fonts);
 
-  const live = await cdp.eval(`(() => ({
-    live: !!window.__field,
-    fallback: document.documentElement.classList.contains('no-webgl'),
-    grainBlend: getComputedStyle(document.querySelector('.grain')).mixBlendMode,
-    grainOpacity: getComputedStyle(document.querySelector('.grain')).opacity,
-  }))()`);
-  check('field shader is running (no fallback)', live.live && !live.fallback, JSON.stringify(live));
-  check('grain overlay is present',
-    live.grainBlend === 'overlay' && live.grainOpacity === '0.055', JSON.stringify(live));
-  const shaderSource = await cdp.eval(`[...document.scripts].map(s => s.textContent).join('\\n')`);
-  check('the separate light-blue layer is removed',
-    !/SKY_SOFT|softCloud/.test(shaderSource));
+    const live = await cdp.eval(`(() => ({
+      live: !!window.__field,
+      fallback: document.documentElement.classList.contains('no-webgl'),
+    }))()`);
+    check('field shader is running (no fallback)', live.live && !live.fallback, JSON.stringify(live));
+    const pageSource = await cdp.eval(`[...document.scripts].map(s => s.textContent).join('\\n')`);
+    check('the separate light-blue layer is removed',
+      !/SKY_SOFT|softCloud/.test(pageSource));
 
-  checkCoverage('desktop', await coverage());
-  await checkField('desktop');
+    /* the masthead: the one white everything else already is, the brand and
+       nothing else, and one height known to the stylesheet, the layout and the
+       script — the shader ends the visible band at innerHeight - MASTHEAD_H */
+    const mast = await cdp.eval(`(() => {
+      const h = document.querySelector('.site-header'), f = document.getElementById('field');
+      if (!h) return null;
+      const cs = getComputedStyle(h);
+      return { h: h.getBoundingClientRect().height, bg: cs.backgroundColor, z: cs.zIndex,
+               fieldZ: f ? getComputedStyle(f).zIndex : null,
+               children: [...h.children].map(el => el.tagName + (el.className ? '.' + el.className : '')),
+               cssVar: getComputedStyle(document.documentElement).getPropertyValue('--masthead-h').trim() };
+    })()`);
+    check('masthead is the ground white, stacked above the field',
+      !!mast && /^rgb\(255,\s*255,\s*255\)$/.test(mast.bg) && +mast.z > +mast.fieldZ,
+      JSON.stringify(mast && { bg: mast.bg, z: mast.z, fieldZ: mast.fieldZ }));
+    check('masthead holds only the brand',
+      !!mast && mast.children.join(', ') === 'SPAN.site-brand', mast ? mast.children.join(', ') : 'no .site-header');
+    const scriptH = +(/MASTHEAD_H\s*=\s*(\d+)/.exec(pageSource) || [])[1];
+    check('masthead height agrees between the stylesheet, the layout and the script',
+      !!mast && parseFloat(mast.cssVar) === mast.h && scriptH === mast.h,
+      mast ? `--masthead-h ${mast.cssVar}, laid out ${mast.h}px, MASTHEAD_H ${scriptH}` : 'no .site-header');
+  });
+
+  await section('desktop coverage', async () => checkCoverage('desktop', await coverage()));
+  await section('desktop field', () => checkField('desktop'));
 
   /* ================= PHONE AND TABLET ================= */
   for (const [w, h, name] of [[390, 844, 'iphone 390×844'], [360, 740, 'android 360×740'], [768, 1024, 'tablet 768×1024']]) {
-    await load(w, h, true);
-    check(`${name}: no console errors`, consoleErrors().length === 0, consoleErrors().join(' | '));
-    checkCoverage(name, await coverage());
-    await checkField(name);
+    await section(`${name} coverage`, async () => {
+      await load(w, h, true);
+      check(`${name}: no console errors`, consoleErrors().length === 0, consoleErrors().join(' | '));
+      checkCoverage(name, await coverage());
+    });
+    await section(`${name} field`, () => checkField(name));
   }
 
   /* ================= PHONE WITH TOOLBARS SHOWING =================
      The reported bug: a fixed layer is sized against the small viewport and
      leaves a strip along the bottom once the toolbars retract. Here the
      viewport is 745 tall while the screen is 844 — the state the page is in
-     before anything retracts — so the cover layer has to already be 844. */
-  await load(390, 745, true, false, [390, 844]);
-  const bar = await cdp.eval(`(() => {
-    const r = document.getElementById('field').getBoundingClientRect();
-    const g = document.querySelector('.grain').getBoundingClientRect();
-    return { h: Math.round(r.height), gh: Math.round(g.height), top: Math.round(r.top),
-             vh: innerHeight, screenH: screen.height,
-             store: window.__field.info(),
-             docH: document.documentElement.scrollHeight,
-             clientH: document.documentElement.clientHeight };
-  })()`);
-  check('toolbar case: field is already as tall as the screen, not the viewport',
-    bar.h >= bar.screenH, `field ${bar.h}px, viewport ${bar.vh}px, screen ${bar.screenH}px`);
-  check('toolbar case: grain covers the same extended box',
-    bar.gh === bar.h, `${bar.gh} vs ${bar.h}`);
-  check('toolbar case: the drawing buffer is cut to the extended box',
-    Math.abs((bar.store.W / bar.store.H) - (390 / bar.h)) / (390 / bar.h) < 0.03,
-    `store ${bar.store.W}×${bar.store.H} for a 390×${bar.h} box`);
-  check('toolbar case: the taller layer does not make the page scroll',
-    bar.docH <= bar.clientH + 1, `doc ${bar.docH}, viewport ${bar.clientH}`);
-  await checkField('toolbar case');
+     before anything retracts — so the cover layer has to already reach 844. */
+  await section('toolbar case', async () => {
+    await load(390, 745, true, false, [390, 844]);
+    const bar = await cdp.eval(`(() => {
+      const r = document.getElementById('field').getBoundingClientRect();
+      return { h: Math.round(r.height), top: Math.round(r.top),
+               vh: innerHeight, screenH: screen.height,
+               store: window.__field.info(),
+               docH: document.documentElement.scrollHeight,
+               clientH: document.documentElement.clientHeight };
+    })()`);
+    check('toolbar case: field already reaches the bottom of the screen, not of the viewport',
+      bar.top + bar.h >= bar.screenH,
+      `field ${bar.h}px from ${bar.top}px, viewport ${bar.vh}px, screen ${bar.screenH}px`);
+    check('toolbar case: the drawing buffer is cut to the extended box',
+      Math.abs((bar.store.W / bar.store.H) - (390 / bar.h)) / (390 / bar.h) < 0.03,
+      `store ${bar.store.W}×${bar.store.H} for a 390×${bar.h} box`);
+    check('toolbar case: the taller layer does not make the page scroll',
+      bar.docH <= bar.clientH + 1, `doc ${bar.docH}, viewport ${bar.clientH}`);
+  });
+  await section('toolbar case field', () => checkField('toolbar case'));
 
   const meanTone = key => toneObservations.reduce((sum, x) => sum + x[key], 0) / toneObservations.length;
   const deepMean = meanTone('deepBlue');
   const blueWhiteMean = meanTone('blueWhite');
-  const meanBalance = `deep ${(deepMean*100).toFixed(1)}%, blue-white ${(blueWhiteMean*100).toFixed(1)}%`;
-  check('pooled field: deep blue stays within 85–90%',
-    deepMean >= 0.85 && deepMean <= 0.90, meanBalance);
-  check('pooled field: blue-white stays within 10–15%',
-    blueWhiteMean >= 0.10 && blueWhiteMean <= 0.15, meanBalance);
+  const meanBalance = `deep ${(deepMean*100).toFixed(1)}%, blue-white ${(blueWhiteMean*100).toFixed(1)}%`
+                    + ` over ${toneObservations.length} viewports`;
+  /* The window moved with the ribbon white from 0.60 to 0.70. It was 85–90 /
+     10–15, which described the old low-contrast look and nothing more; at the
+     higher white the same field pools at 78.0–79.3% deep across repeat runs.
+     The range below is 7 points wide with roughly 2.5 points of margin either
+     side — the old one was 5 points and the README recorded it passing at
+     85.2–85.5%, i.e. with almost none. */
+  check('pooled field: deep blue stays within 75–82%',
+    deepMean >= 0.75 && deepMean <= 0.82, meanBalance);
+  check('pooled field: blue-white stays within 18–25%',
+    blueWhiteMean >= 0.18 && blueWhiteMean <= 0.25, meanBalance);
 
   /* the layer must not shrink back when the viewport grows and shrinks again */
-  await cdp.send('Emulation.setDeviceMetricsOverride',
-    { width: 390, height: 844, deviceScaleFactor: 2, mobile: true, screenWidth: 390, screenHeight: 844 });
-  await sleep(500);
-  await cdp.send('Emulation.setDeviceMetricsOverride',
-    { width: 390, height: 745, deviceScaleFactor: 2, mobile: true, screenWidth: 390, screenHeight: 844 });
-  await sleep(500);
-  const held = await cdp.eval(`Math.round(document.getElementById('field').getBoundingClientRect().height)`);
-  check('toolbar case: the layer never shrinks back below its tallest',
-    held >= 844, held + 'px after the viewport grew then shrank');
+  await section('toolbar case high-water mark', async () => {
+    await load(390, 745, true, false, [390, 844]);
+    await cdp.send('Emulation.setDeviceMetricsOverride',
+      { width: 390, height: 844, deviceScaleFactor: 2, mobile: true, screenWidth: 390, screenHeight: 844 });
+    await sleep(500);
+    await cdp.send('Emulation.setDeviceMetricsOverride',
+      { width: 390, height: 745, deviceScaleFactor: 2, mobile: true, screenWidth: 390, screenHeight: 844 });
+    await sleep(500);
+    const held = await cdp.eval(`Math.round(document.getElementById('field').getBoundingClientRect().height)`);
+    check('toolbar case: the layer never shrinks back below its tallest',
+      held >= 844, held + 'px after the viewport grew then shrank');
+  });
 
   /* ================= BROWSER BAR TINT =================
      The bars a phone browser draws outside the page take their colour from
      theme-color. If it stays at its static default they read as flat bands
      cutting the gradient off, which looks like the page not filling the
      screen even when the canvas covers every pixel of it. */
-  await load(390, 745, true, false, [390, 844]);
-  const tint = await cdp.eval(`(() => {
-    const m = document.querySelector('meta[name="theme-color"]');
-    // The seam is at the edges of the VISIBLE band — the canvas runs the full
-    // screen height and its own bottom rows are hidden behind the URL bar.
-    const w = document.getElementById('field').getBoundingClientRect().width;
-    return { content: m && m.getAttribute('content'),
-             bodyBgComputed: getComputedStyle(document.body).backgroundColor,
-             topRow:    window.__field.grid(0, 0, w, 3, 10, 1),
-             bottomRow: window.__field.grid(0, innerHeight - 3, w, 3, 10, 1),
-             leftCol:   window.__field.grid(0, 0, 3, innerHeight, 1, 10),
-             rightCol:  window.__field.grid(w - 3, 0, 3, innerHeight, 1, 10) };
-  })()`);
-  check('theme-color is the browser white the bars already paint',
-    (tint.content || '').toLowerCase() === '#ffffff', tint.content);
-  check('the page ground is that same white',
-    /^(rgb\(255,\s*255,\s*255\)|#fff(fff)?|white)$/i.test(tint.bodyBgComputed || ''), tint.bodyBgComputed);
+  await section('browser bar tint', async () => {
+    await load(390, 745, true, false, [390, 844]);
+    const tint = await cdp.eval(`(() => {
+      const m = document.querySelector('meta[name="theme-color"]');
+      // The seam is at the edges of the VISIBLE band. Its top edge meets the
+      // masthead; the canvas runs on past its bottom edge, and those rows are
+      // never seen — sampling them would pass on any page, they are always ground.
+      const band = ${BAND};
+      return { content: m && m.getAttribute('content'),
+               bodyBgComputed: getComputedStyle(document.body).backgroundColor,
+               band,
+               topRow:    window.__field.grid(0, 0, band.w, 3, 10, 1),
+               bottomRow: window.__field.grid(0, band.h - 3, band.w, 3, 10, 1),
+               leftCol:   window.__field.grid(0, 0, 3, band.h, 1, 10),
+               rightCol:  window.__field.grid(band.w - 3, 0, 3, band.h, 1, 10) };
+    })()`);
+    check('theme-color is the browser white the bars already paint',
+      (tint.content || '').toLowerCase() === '#ffffff', tint.content);
+    check('the page ground is that same white',
+      /^(rgb\(255,\s*255,\s*255\)|#fff(fff)?|white)$/i.test(tint.bodyBgComputed || ''), tint.bodyBgComputed);
 
-  const t = [255, 255, 255];
-  const worst = (row) => Math.max(...row.map(p => Math.max(...[0,1,2].map(i => Math.abs(p[i] - t[i])))));
-  const spreadOf = (row) => Math.max(...[0,1,2].map(i =>
-    Math.max(...row.map(p => p[i])) - Math.min(...row.map(p => p[i]))));
+    const t = [255, 255, 255];
+    const worst = (row) => Math.max(...row.map(p => Math.max(...[0,1,2].map(i => Math.abs(p[i] - t[i])))));
+    const spreadOf = (row) => Math.max(...[0,1,2].map(i =>
+      Math.max(...row.map(p => p[i])) - Math.min(...row.map(p => p[i]))));
 
-  // all four edges dissolve into the ground; top and bottom also carry the
-  // join with the browser's own bars
-  for (const [name, row] of [['top', tint.topRow], ['bottom', tint.bottomRow],
-                             ['left', tint.leftCol], ['right', tint.rightCol]]) {
-    check(`${name} edge of the picture has reached the ground white`,
-      worst(row) <= 6, `worst channel off by ${worst(row)}/255`);
-    check(`${name} edge is flat along its length, not a ramp meeting the ground`,
-      spreadOf(row) <= 5, `spread ${spreadOf(row)}`);
-  }
+    // all four edges dissolve into the ground; the top carries the join with
+    // the masthead and the bottom the join with the browser's own bar
+    for (const [name, row] of [['top', tint.topRow], ['bottom', tint.bottomRow],
+                               ['left', tint.leftCol], ['right', tint.rightCol]]) {
+      check(`${name} edge of the picture has reached the ground white`,
+        worst(row) <= 6, `worst channel off by ${worst(row)}/255`);
+      check(`${name} edge is flat along its length, not a ramp meeting the ground`,
+        spreadOf(row) <= 5, `spread ${spreadOf(row)}`);
+    }
 
-  // the colour must still be there in the middle — a fade that swallowed the
-  // picture would pass every check above
-  const mid = await cdp.eval(`(() => { const w = document.getElementById('field').getBoundingClientRect().width;
-    return window.__field.grid(0, innerHeight * 0.3, w, innerHeight * 0.4, 8, 8); })()`);
-  const midChroma = Math.max(...mid.map(p => (Math.max(...p) - Math.min(...p)) / 255));
-  check('the palette still blooms in the middle of the screen',
-    midChroma > 0.20, `peak chroma ${midChroma.toFixed(2)} between 30% and 70% of the height`);
+    // the colour must still be there in the middle — a fade that swallowed the
+    // picture would pass every check above
+    const mid = await cdp.eval(`(() => { const band = ${BAND};
+      return window.__field.grid(0, band.h * 0.3, band.w, band.h * 0.4, 8, 8); })()`);
+    const midChroma = Math.max(...mid.map(p => (Math.max(...p) - Math.min(...p)) / 255));
+    check('the palette still blooms in the middle of the screen',
+      midChroma > 0.20, `peak chroma ${midChroma.toFixed(2)} between 30% and 70% of the visible height`);
+  });
 
   /* ================= CORNERS =================
      Every check above samples edge MIDLINES, and all of them passed while the
@@ -384,116 +475,126 @@ try {
      ?test=mask paints the mask itself, so these are exact numbers: no field
      colour to see through, and no need to pool several moments. */
   for (const [label, vw, vh] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
-    await load(vw, vh, vw < 500, false, null, 'mask');
-    const probe = await cdp.eval(`(() => {
-      const v = (x, y) => window.__field.grid(x, y, 1, 1, 1, 1)[0][0] / 255;
-      const W = innerWidth, H = innerHeight;
-      // a third of the way through the fade, where the curve is steep and a
-      // wrong shape has nowhere to hide. The two axes differ on a phone: the
-      // fade is capped at 18% of each one, so 390px wide gives 70px not 96px.
-      const dx = Math.min(96, W * 0.18) / 3, dy = Math.min(96, H * 0.18) / 3;
-      return {
-        dx, dy,
-        left: v(dx, H / 2), right: v(W - dx, H / 2),
-        top:  v(W / 2, dy), bottom: v(W / 2, H - dy),
-        corners: {
-          'top-left':     [v(dx, dy),         'left',  'top'],
-          'top-right':    [v(W - dx, dy),     'right', 'top'],
-          'bottom-left':  [v(dx, H - dy),     'left',  'bottom'],
-          'bottom-right': [v(W - dx, H - dy), 'right', 'bottom'],
-        },
-      };
-    })()`);
-    // An emptied drawing buffer reads as all zeros, and 0 === 0 * 0, so the
-    // product law below would be satisfied by no picture at all. Refuse to
-    // judge the frame unless the mask is actually present first.
-    check(`${label}: the mask readback is a real frame, not an empty buffer`,
-      [probe.left, probe.right, probe.top, probe.bottom].every(x => x > 0.30 && x < 0.65),
-      `edge masks ${[probe.left, probe.right, probe.top, probe.bottom].map(x => x.toFixed(3)).join(' / ')}`);
-    for (const [corner, [got, ea, eb]] of Object.entries(probe.corners)) {
-      const a = probe[ea], b = probe[eb];
-      check(`${label} ${corner}: the corner is faded by both its edges`,
-        Math.abs(got - a * b) <= 0.02,
-        `mask ${got.toFixed(3)}, edges ${a.toFixed(3)} x ${b.toFixed(3)} = ${(a * b).toFixed(3)}`);
-      check(`${label} ${corner}: no square vertex pointing down the diagonal`,
-        Math.min(a, b) - got >= 0.15,
-        `mask ${got.toFixed(3)} vs ${a.toFixed(3)} / ${b.toFixed(3)} at the same depth`);
-    }
-    // A fade that had simply grown would pass both checks above by swallowing
-    // the corners, so pin the single-edge curve too. Measure where it reaches
-    // half rather than its value at a fixed depth: grid() rounds its sample to
-    // whole device pixels, and on this curve one pixel of position is 0.02 of
-    // value — enough to make a fixed-depth reading look asymmetric when only
-    // the rounding differs. A crossing found by interpolation is not sensitive
-    // to that. pow(smoothstep(k), 2.2) = 0.5 at k = 0.658, so the half point
-    // sits 0.342 of the way in from the edge, and always has.
-    const half = await cdp.eval(`(() => {
-      const W = innerWidth, H = innerHeight;
-      const fx = Math.min(96, W * 0.18), fy = Math.min(96, H * 0.18);
-      const strip = (x, y, w, h, n, vertical) =>
-        window.__field.grid(x, y, w, h, vertical ? 1 : n, vertical ? n : 1).map(p => p[0] / 255);
-      // depth, in css px from the edge, at which the mask passes 0.5
-      const cross = (vals, span) => {
-        for (let i = 1; i < vals.length; i++)
-          if (vals[i - 1] < 0.5 && vals[i] >= 0.5)
-            return (i - 1 + (0.5 - vals[i - 1]) / (vals[i] - vals[i - 1])) * span / vals.length;
-        return NaN;
-      };
-      const n = 96;
-      return {
-        fx, fy,
-        left:   cross(strip(0,      H / 2, fx, 1, n, false), fx),
-        right:  cross(strip(W - fx, H / 2, fx, 1, n, false).reverse(), fx),
-        top:    cross(strip(W / 2, 0,      1, fy, n, true), fy),
-        bottom: cross(strip(W / 2, H - fy, 1, fy, n, true).reverse(), fy),
-      };
-    })()`);
-    const wantX = half.fx * 0.342, wantY = half.fy * 0.342;
-    const found = [half.left, half.right, half.top, half.bottom].every(Number.isFinite);
-    const off = !found ? [Infinity] :
-      [[half.left, wantX], [half.right, wantX],
-       [half.top, wantY], [half.bottom, wantY]].map(([g, w]) => Math.abs(g - w));
-    const px = v => Number.isFinite(v) ? v.toFixed(1) : 'not found';
-    check(`${label}: the single-edge fade curve is where it was`,
-      found && off.every(d => d <= 1.5),
-      `half point L ${px(half.left)} R ${px(half.right)} ` +
-      `T ${px(half.top)} B ${px(half.bottom)}px, ` +
-      `expected ${wantX.toFixed(1)} / ${wantY.toFixed(1)}px`);
+    await section(`${label} corners`, async () => {
+      await load(vw, vh, vw < 500, false, null, 'mask');
+      const probe = await cdp.eval(`(() => {
+        const v = (x, y) => window.__field.grid(x, y, 1, 1, 1, 1)[0][0] / 255;
+        // the four edges of the picture are the edges of the visible band
+        const band = ${BAND}, W = band.w, H = band.h;
+        // a third of the way through the fade, where the curve is steep and a
+        // wrong shape has nowhere to hide. The two axes differ on a phone: the
+        // fade is capped at 18% of each one, so 390px wide gives 70px not 96px.
+        const dx = Math.min(96, W * 0.18) / 3, dy = Math.min(96, H * 0.18) / 3;
+        return {
+          dx, dy, W, H,
+          left: v(dx, H / 2), right: v(W - dx, H / 2),
+          top:  v(W / 2, dy), bottom: v(W / 2, H - dy),
+          corners: {
+            'top-left':     [v(dx, dy),         'left',  'top'],
+            'top-right':    [v(W - dx, dy),     'right', 'top'],
+            'bottom-left':  [v(dx, H - dy),     'left',  'bottom'],
+            'bottom-right': [v(W - dx, H - dy), 'right', 'bottom'],
+          },
+        };
+      })()`);
+      // An emptied drawing buffer reads as all zeros, and 0 === 0 * 0, so the
+      // product law below would be satisfied by no picture at all. Refuse to
+      // judge the frame unless the mask is actually present first.
+      check(`${label}: the mask readback is a real frame, not an empty buffer`,
+        [probe.left, probe.right, probe.top, probe.bottom].every(x => x > 0.30 && x < 0.65),
+        `edge masks ${[probe.left, probe.right, probe.top, probe.bottom].map(x => x.toFixed(3)).join(' / ')}`
+        + ` in a ${probe.W}×${probe.H} band`);
+      for (const [corner, [got, ea, eb]] of Object.entries(probe.corners)) {
+        const a = probe[ea], b = probe[eb];
+        check(`${label} ${corner}: the corner is faded by both its edges`,
+          Math.abs(got - a * b) <= 0.02,
+          `mask ${got.toFixed(3)}, edges ${a.toFixed(3)} x ${b.toFixed(3)} = ${(a * b).toFixed(3)}`);
+        check(`${label} ${corner}: no square vertex pointing down the diagonal`,
+          Math.min(a, b) - got >= 0.15,
+          `mask ${got.toFixed(3)} vs ${a.toFixed(3)} / ${b.toFixed(3)} at the same depth`);
+      }
+      // A fade that had simply grown would pass both checks above by swallowing
+      // the corners, so pin the single-edge curve too. Measure where it reaches
+      // half rather than its value at a fixed depth: grid() rounds its sample to
+      // whole device pixels, and on this curve one pixel of position is 0.02 of
+      // value — enough to make a fixed-depth reading look asymmetric when only
+      // the rounding differs. A crossing found by interpolation is not sensitive
+      // to that. pow(smoothstep(k), 2.2) = 0.5 at k = 0.658, so the half point
+      // sits 0.342 of the way in from the edge, and always has.
+      const half = await cdp.eval(`(() => {
+        const band = ${BAND}, W = band.w, H = band.h;
+        const fx = Math.min(96, W * 0.18), fy = Math.min(96, H * 0.18);
+        const strip = (x, y, w, h, n, vertical) =>
+          window.__field.grid(x, y, w, h, vertical ? 1 : n, vertical ? n : 1).map(p => p[0] / 255);
+        // depth, in css px from the edge, at which the mask passes 0.5
+        const cross = (vals, span) => {
+          for (let i = 1; i < vals.length; i++)
+            if (vals[i - 1] < 0.5 && vals[i] >= 0.5)
+              return (i - 1 + (0.5 - vals[i - 1]) / (vals[i] - vals[i - 1])) * span / vals.length;
+          return NaN;
+        };
+        const n = 96;
+        return {
+          fx, fy,
+          left:   cross(strip(0,      H / 2, fx, 1, n, false), fx),
+          right:  cross(strip(W - fx, H / 2, fx, 1, n, false).reverse(), fx),
+          top:    cross(strip(W / 2, 0,      1, fy, n, true), fy),
+          bottom: cross(strip(W / 2, H - fy, 1, fy, n, true).reverse(), fy),
+        };
+      })()`);
+      const wantX = half.fx * 0.342, wantY = half.fy * 0.342;
+      const found = [half.left, half.right, half.top, half.bottom].every(Number.isFinite);
+      const off = !found ? [Infinity] :
+        [[half.left, wantX], [half.right, wantX],
+         [half.top, wantY], [half.bottom, wantY]].map(([g, w]) => Math.abs(g - w));
+      const px = v => Number.isFinite(v) ? v.toFixed(1) : 'not found';
+      check(`${label}: the single-edge fade curve is where it was`,
+        found && off.every(d => d <= 1.5),
+        `half point L ${px(half.left)} R ${px(half.right)} ` +
+        `T ${px(half.top)} B ${px(half.bottom)}px, ` +
+        `expected ${wantX.toFixed(1)} / ${wantY.toFixed(1)}px`);
+    });
   }
 
   /* ================= POINTER IS INERT ================= */
   // With motion suppressed the clock is frozen, so any change in the frame
   // after a pointer sweep could only have come from the pointer.
-  await load(1440, 900, false, true);
-  const before = await cdp.eval(`window.__field.hash()`);
-  const after = await cdp.eval(`(async () => {
-    for (const [x, y] of [[80, 80], [700, 200], [1300, 820], [400, 600]]) {
-      dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, bubbles: true }));
-      document.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, bubbles: true }));
-    }
-    await new Promise(r => setTimeout(r, 400));
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    return window.__field.hash();
-  })()`);
-  check('pointer does not move the field', before === after, `${before} → ${after}`);
-  const residue = await cdp.eval(`(() => ({
-    cursorVar: document.documentElement.style.getPropertyValue('--cursor-x'),
-    pointingClass: document.body.className,
-  }))()`);
-  check('no pointer state is written to the page',
-    residue.cursorVar === '' && residue.pointingClass === '', JSON.stringify(residue));
+  await section('pointer', async () => {
+    await load(1440, 900, false, true);
+    const before = await cdp.eval(`window.__field.hash()`);
+    const after = await cdp.eval(`(async () => {
+      for (const [x, y] of [[80, 80], [700, 200], [1300, 820], [400, 600]]) {
+        dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, bubbles: true }));
+        document.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, bubbles: true }));
+      }
+      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      return window.__field.hash();
+    })()`);
+    check('pointer does not move the field', before === after, `${before} → ${after}`);
+    const residue = await cdp.eval(`(() => ({
+      cursorVar: document.documentElement.style.getPropertyValue('--cursor-x'),
+      pointingClass: document.body.className,
+    }))()`);
+    check('no pointer state is written to the page',
+      residue.cursorVar === '' && residue.pointingClass === '', JSON.stringify(residue));
+  });
 
   /* ================= REDUCED MOTION ================= */
-  const rmClock = await cdp.eval(`window.__field.info().clock`);
-  check('reduced motion: the field reports itself frozen',
-    await cdp.eval(`window.__field.info().reduced`) === true);
-  await sleep(900);
-  check('reduced motion: the clock does not advance',
-    (await cdp.eval(`window.__field.info().clock`)) === rmClock, `${rmClock} held`);
-  const frozen = await cdp.eval(`window.__field.grid(0, 0, innerWidth, innerHeight, 10, 6)`);
-  check('reduced motion: the still frame is still a full gradient',
-    Math.max(...frozen.map(lum)) - Math.min(...frozen.map(lum)) > 0.04,
-    'spread ' + (Math.max(...frozen.map(lum)) - Math.min(...frozen.map(lum))).toFixed(3));
+  await section('reduced motion', async () => {
+    await load(1440, 900, false, true);
+    const rmClock = await cdp.eval(`window.__field.info().clock`);
+    check('reduced motion: the field reports itself frozen',
+      await cdp.eval(`window.__field.info().reduced`) === true);
+    await sleep(900);
+    check('reduced motion: the clock does not advance',
+      (await cdp.eval(`window.__field.info().clock`)) === rmClock, `${rmClock} held`);
+    const frozen = await cdp.eval(`(() => { const band = ${BAND};
+      return window.__field.grid(0, 0, band.w, band.h, 10, 6); })()`);
+    check('reduced motion: the still frame is still a full gradient',
+      Math.max(...frozen.map(lum)) - Math.min(...frozen.map(lum)) > 0.04,
+      'spread ' + (Math.max(...frozen.map(lum)) - Math.min(...frozen.map(lum))).toFixed(3));
+  });
 
 } catch (err) {
   check('harness', false, err.message);
@@ -502,7 +603,11 @@ try {
   chrome.kill('SIGKILL');
 }
 
+const ran = results.filter(r => !r.abort);
 const passed = results.filter(r => r.pass).length;
 for (const r of results) console.log(`${r.pass ? '  ok  ' : ' FAIL '} ${r.name}${r.detail ? '   → ' + r.detail : ''}`);
-console.log(`\n${passed}/${results.length} checks passed`);
-process.exit(passed === results.length && !exitCode ? 0 : 1);
+let tally = `\n${passed}/${results.length} checks passed`;
+if (ran.length < EXPECTED) tally += ` — ${EXPECTED - ran.length} of ${EXPECTED} checks never ran` + (aborted ? ` (${aborted} section${aborted > 1 ? 's' : ''} aborted)` : '');
+if (ran.length > EXPECTED) tally += ` — ran ${ran.length} checks but EXPECTED says ${EXPECTED}: update EXPECTED and the README`;
+console.log(tally);
+process.exit(passed === results.length && ran.length === EXPECTED && !exitCode ? 0 : 1);
