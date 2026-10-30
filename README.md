@@ -403,6 +403,16 @@ only thing that uses `wordmark-mask.png`).
   `compare-tab.mjs` and `concepts/ff/` (a mirrored ff mark) are the directions
   tried the same day and not used.
 
+  `concepts/wordmark/playground/` is a separate site,
+  **mahjoffg-mosaic.pages.dev** (Pages project `mahjoffg-mosaic`, `noindex`,
+  first deployed 2026-10-30 as `d5f1de9e`): it counts the icon's cells, lists
+  each icon size's cell and margin in px, and lets you resample, paint and
+  export. At the default parameters it shows the live 16px file's values
+  verbatim, since a browser's resampling differs from headless Chrome's by ±1
+  in a cell or two. Deploy it with
+  `npx wrangler pages deploy concepts/wordmark/playground --project-name=mahjoffg-mosaic --branch=main`
+  (Node 22). If the live icon changes, update `LIVE` in its `app.js`.
+
 - `concepts/brush-m/` — generator for the favicon before it (`3679514f`), a hand-written
   m: one brush stroke of `#49A5E8` on the ground white. Unlike every earlier
   icon it is not drawn in code. `src/mahjoffg-brush-m-source.webp` is the

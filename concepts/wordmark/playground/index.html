@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Mahjoffg 马赛克</title>
+  <link rel="icon" type="image/png" href="mahjoffg-mosaic-blue-20261030a-32.png" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <h1>Mahjoffg 马赛克</h1>
+    <p class="lede">mahjoffg.com 的图标是把字标采样成方格后放大。在这里看清每一格，改参数，或者直接在格子上画。</p>
+  </header>
+
+  <main class="layout">
+    <section class="board" aria-label="方格">
+      <div class="board-head">
+        <div class="seg" role="group" aria-label="鼠标在方格上的作用">
+          <button type="button" id="mode-look" class="on" aria-pressed="true">查看</button>
+          <button type="button" id="mode-paint" aria-pressed="false">涂</button>
+          <button type="button" id="mode-erase" aria-pressed="false">擦</button>
+        </div>
+        <label class="inline" id="brush-wrap">深浅 <input type="range" id="brush" min="1" max="255" value="160" /> <output id="brush-out">160</output></label>
+        <div class="seg" role="group" aria-label="底色">
+          <button type="button" id="bg-checker" class="on" aria-pressed="true">透明</button>
+          <button type="button" id="bg-white" aria-pressed="false">白</button>
+          <button type="button" id="bg-dark" aria-pressed="false">深色</button>
+          <button type="button" id="bg-black" aria-pressed="false">黑（iOS）</button>
+        </div>
+      </div>
+      <div class="canvas-wrap"><canvas id="grid" aria-label="放大后的方格，每格写着它的深浅"></canvas></div>
+      <p class="hover" id="hover">把鼠标移到某一格上，看它的位置和数值。</p>
+    </section>
+
+    <aside class="side">
+      <section class="panel" aria-labelledby="h-stats">
+        <h2 id="h-stats">数一数</h2>
+        <dl class="stats">
+          <div><dt>方块总数</dt><dd id="s-total">—</dd></div>
+          <div><dt>有颜色的方块</dt><dd id="s-inked">—</dd></div>
+          <div><dt>空白方块</dt><dd id="s-empty">—</dd></div>
+          <div><dt>最深的一格</dt><dd id="s-max">—</dd></div>
+          <div><dt>最浅的一格（不算空白）</dt><dd id="s-min">—</dd></div>
+          <div><dt>有色方块的平均深浅</dt><dd id="s-mean">—</dd></div>
+        </dl>
+        <p class="match" id="match"></p>
+        <div class="hist-wrap"><canvas id="hist" height="56" aria-label="有颜色的方块按深浅分布"></canvas></div>
+        <p class="note">深浅是这一格被笔画盖住的比例，0–255。线上图标里每格都是 <span class="swatch" id="sw"></span><code id="hex">#49A5E8</code>，深浅就是它的不透明度。</p>
+      </section>
+
+      <section class="panel" aria-labelledby="h-sizes">
+        <h2 id="h-sizes">每个方块多少像素</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>图标</th><th>尺寸</th><th>每格</th><th>四周留白</th></tr></thead>
+            <tbody id="sizes"></tbody>
+          </table>
+        </div>
+        <p class="note">每格边长 = 尺寸 ÷ 格数，取整；剩下的像素平分到四周。maskable 图标用 ¾ 的格子，让字留在安卓遮罩的安全区里。</p>
+      </section>
+
+      <section class="panel" aria-labelledby="h-params">
+        <h2 id="h-params">参数</h2>
+        <div class="controls">
+          <label>格数（每边）<span><input type="range" id="n" min="6" max="64" value="16" /> <output id="n-out">16</output></span></label>
+          <label>字宽占几格<span><input type="range" id="w" min="2" max="64" value="14" /> <output id="w-out">14</output></span></label>
+          <label>字距（em）<span><input type="range" id="track" min="-0.12" max="0.2" step="0.01" value="-0.03" /> <output id="track-out">−0.03</output></span></label>
+          <label>文字<input type="text" id="text" value="Mahjoffg" maxlength="24" autocomplete="off" spellcheck="false" /></label>
+          <label>颜色<span><input type="color" id="color" value="#49a5e8" /> <code id="color-out">#49A5E8</code></span></label>
+          <label>深浅分几档<span><input type="range" id="levels" min="2" max="256" value="256" /> <output id="levels-out">不分档</output></span></label>
+          <label class="check"><input type="checkbox" id="vals" checked /> 格子里显示数值</label>
+          <label class="check"><input type="checkbox" id="pct" /> 数值用百分比</label>
+        </div>
+        <div class="buttons">
+          <button type="button" id="reset" class="primary">回到线上图标</button>
+          <button type="button" id="copy">复制格子数据</button>
+        </div>
+        <p class="note" id="edit-note">改上面任何参数都会重新采样，手画的修改会被清掉。</p>
+      </section>
+    </aside>
+
+    <section class="panel previews" aria-labelledby="h-prev">
+      <h2 id="h-prev">实际大小</h2>
+      <div class="prev-row" id="prev-row"></div>
+      <div class="export">
+        <label>导出尺寸 <input type="number" id="ex-size" min="8" max="2048" value="512" /> px</label>
+        <label>每格 <input type="number" id="ex-cell" min="1" max="256" value="32" /> px</label>
+        <label class="check"><input type="checkbox" id="ex-white" /> 白底</label>
+        <button type="button" id="ex-go" class="primary">下载 PNG</button>
+        <span class="note" id="ex-info"></span>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>字体 Inter Display SemiBold，SIL Open Font License 1.1（<a href="LICENSE-Inter.txt">授权文本</a>）。线上图标见 <a href="https://mahjoffg.com" rel="noopener">mahjoffg.com</a>。</p>
+  </footer>
+</body>
+</html>
