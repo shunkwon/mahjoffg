@@ -330,7 +330,8 @@ redeploy a known-good directory.
 
 | deployment | what it is |
 |---|---|
-| `2d7fc4fa` | current — blue mosaic wordmark favicon (`mahjoffg-mosaic-blue-20261030a-*`, 16/32/apple-180 + `manifest.webmanifest` with 192/512 any and maskable, all transparent, from `concepts/wordmark/`); differs from `3679514f` only in the favicon `<link>` lines, the new manifest link and the icon files (2026-10-30) |
+| `6dd7249c` | current — the same mosaic favicon with a hand-painted grid (`mahjoffg-mosaic-blue-20261030b-*`, from `concepts/wordmark/grids/20261030b.json`, painted in the playground: 36 inked cells in four tones, 255/156/93/38); differs from `2d7fc4fa` only in the icon file names in `index.html` and the manifest, and the icon files (2026-10-30) |
+| `2d7fc4fa` | blue mosaic wordmark favicon (`mahjoffg-mosaic-blue-20261030a-*`, 16/32/apple-180 + `manifest.webmanifest` with 192/512 any and maskable, all transparent, from `concepts/wordmark/`); differs from `3679514f` only in the favicon `<link>` lines, the new manifest link and the icon files (2026-10-30) |
 | `3679514f` | hand-written m favicon (`mahjoffg-brush-m-20260929a-*`, 16/32/180, from `concepts/brush-m/`); differs from `f8cbe19b` only in the favicon `<link>` lines (2026-09-29) |
 | `f8cbe19b` | two-eyes favicon (`mahjoffg-eyes-20260920a-*`) and the sharpened field; byte-identical to commit `cb37e4b` (2026-09-20) |
 | `e3ef1733` | ribbon-M favicon (`mahjoffg-ribbon-20260919a-*`); differs from `475e2126` only in the favicon `<link>` lines |
@@ -397,8 +398,17 @@ only thing that uses `wordmark-mask.png`).
   Android launchers on their own fill. Maskable cells are 9/24 px so the inked
   14×4 cells sit inside the 80% safe circle. The checks read every file back
   and require each cell to be one flat tone equal to the grid, nothing inked
-  outside it. The seven `mahjoffg-mosaic-blue-20261030a-*` PNGs in the project
-  root are byte-identical copies of `out/`. `make-mosaic.mjs tile` (white on a
+  outside it.
+
+  The live icon is **not** the font's grid any more: since `6dd7249c` it is
+  `grids/20261030b.json`, painted by hand in the playground below and copied
+  out with its 复制格子数据 button. `node make-mosaic.mjs blue --grid
+  grids/20261030b.json` builds the set from it (the file must be 16×16, 0–255,
+  in `#49A5E8`; the tag comes from the file name). The seven
+  `mahjoffg-mosaic-blue-20261030b-*` PNGs in the project root are
+  byte-identical copies of `out/` and are what ships; the
+  `mahjoffg-mosaic-blue-20261030a-*` set beside them is the font's grid,
+  shipped as `2d7fc4fa`. `make-mosaic.mjs tile` (white on a
   blue square), `make-favicon.mjs` (the unmosaicked wordmark),
   `compare-tab.mjs` and `concepts/ff/` (a mirrored ff mark) are the directions
   tried the same day and not used.
@@ -408,10 +418,11 @@ only thing that uses `wordmark-mask.png`).
   first deployed 2026-10-30 as `d5f1de9e`): it counts the icon's cells, lists
   each icon size's cell and margin in px, and lets you resample, paint and
   export. At the default parameters it shows the live 16px file's values
-  verbatim, since a browser's resampling differs from headless Chrome's by ±1
-  in a cell or two. Deploy it with
+  verbatim; other parameters are resampled from the font in the browser. Deploy it with
   `npx wrangler pages deploy concepts/wordmark/playground --project-name=mahjoffg-mosaic --branch=main`
-  (Node 22). If the live icon changes, update `LIVE` in its `app.js`.
+  (Node 22). `LIVE` in its `app.js` is the shipped grid, shown at the default
+  parameters; when the live icon changes, update it and redeploy the
+  playground (last: `fedea618`, for `20261030b`).
 
 - `concepts/brush-m/` — generator for the favicon before it (`3679514f`), a hand-written
   m: one brush stroke of `#49A5E8` on the ground white. Unlike every earlier

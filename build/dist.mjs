@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
 
-const ICON = 'mahjoffg-mosaic-blue-20261030a';
+const ICON = 'mahjoffg-mosaic-blue-20261030b';
 const SHIP = ['index.html', 'manifest.webmanifest',
   ...['16', '32', 'apple-180', '192', '512', 'maskable-192', 'maskable-512'].map(s => `${ICON}-${s}.png`)];
 

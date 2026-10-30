@@ -1,6 +1,10 @@
 // Mahjoffg favicon — the wordmark as a 16×16 mosaic.
 //   node make-mosaic.mjs blue   blue cells on a transparent ground
 //   node make-mosaic.mjs tile   white letters on a solid blue square
+//   node make-mosaic.mjs blue --grid grids/20261030b.json
+//                               a hand-painted grid instead of the font's,
+//                               as copied from the playground; tagged by the
+//                               file's name
 // writes out/ and checks what it wrote
 // The mark IS the 16px rendering of the wordmark: "Mahjoffg" in Inter Display
 // SemiBold (fonts/, SIL OFL 1.1) at the masthead's −0.03em tracking, 14 of 16
@@ -24,21 +28,29 @@ const HERE = fileURLToPath(new URL('.', import.meta.url));
 const OUT = HERE + 'out/';
 const WAY = process.argv[2];
 if (!['blue', 'tile'].includes(WAY)) throw new Error('usage: node make-mosaic.mjs blue|tile');
-const TAG = `mahjoffg-mosaic-${WAY}-20261030a`;
+const gi = process.argv.indexOf('--grid'), GRID_FILE = gi > 0 ? process.argv[gi + 1] : null;
+const TAG = `mahjoffg-mosaic-${WAY}-${GRID_FILE ? GRID_FILE.replace(/^.*\//, '').replace(/\.json$/, '') : '20261030a'}`;
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const N = 16, FRAC = 14 / 16;
 mkdirSync(OUT, { recursive: true });
 
 // ── the grid ────────────────────────────────────────────────────────────────
 // Chrome draws the wordmark once at 400px (render.html); each cell is the
-// area coverage of the master under it.
+// area coverage of the master under it. With --grid the cells come from the
+// file instead, which must be 16×16 integers 0–255 in the icon's own blue.
+const GRID = new Uint8Array(N * N);
+if (GRID_FILE) {
+  const j = JSON.parse(readFileSync(new URL(GRID_FILE, pathToFileURL(HERE)), 'utf8'));
+  if (j.cells !== N || j.alpha.length !== N || j.alpha.some((r) => r.length !== N)) throw new Error(`${GRID_FILE}: not ${N}×${N}`);
+  if (j.color.toUpperCase() !== '#' + SKY.map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase()) throw new Error(`${GRID_FILE}: colour ${j.color} is not the site blue`);
+  j.alpha.flat().forEach((v, i) => { if (!Number.isInteger(v) || v < 0 || v > 255) throw new Error(`${GRID_FILE}: cell ${i} is ${v}`); GRID[i] = v; });
+} else {
 const url = pathToFileURL(HERE + 'render.html').href + '#' + encodeURIComponent('InterDisplay-SemiBold.woff2');
 const dom = execFileSync(CHROME, ['--headless=new', '--disable-gpu', '--allow-file-access-from-files', '--virtual-time-budget=5000', '--dump-dom', url], { maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
 const res = dom.match(/<pre id="out">([\s\S]*?)<\/pre>/)[1].trim();
 if (!/^\d/.test(res)) throw new Error('render.html: ' + (res || 'no output'));
 const [MW, MH] = res.split(' ').map(Number), master = Buffer.from(res.split(' ')[2], 'base64');
 const SS = 32, k = (FRAC * N) / MW, ox = (N - MW * k) / 2, oy = (N - MH * k) / 2;
-const GRID = new Uint8Array(N * N);
 for (let cy = 0; cy < N; cy++) for (let cx = 0; cx < N; cx++) {
   let sum = 0;
   for (let j = 0; j < SS; j++) for (let i = 0; i < SS; i++) {
@@ -46,6 +58,7 @@ for (let cy = 0; cy < N; cy++) for (let cx = 0; cx < N; cx++) {
     if (mx >= 0 && my >= 0 && mx < MW && my < MH) sum += master[my * MW + mx];
   }
   GRID[cy * N + cx] = Math.round(sum / SS / SS);
+}
 }
 for (let cy = 0; cy < N; cy++) {
   const row = [...GRID.subarray(cy * N, cy * N + N)];
@@ -115,5 +128,5 @@ for (let yy = 0; yy < 192; yy++) for (let xx = 0; xx < 192; xx++) if ((xx - 95.5
   const o = (yy * 192 + xx) * 4; for (let c = 0; c < 4; c++) circ.data[o + c] = m.data[o + c];
 }
 blit(sheet, circ, 704, 16);
-writeFileSync(`${OUT}mosaic-${WAY}-preview.png`, png(sheet, { opaque: true }));
-console.log(`mosaic-${WAY}-preview.png`);
+writeFileSync(`${OUT}${TAG}-preview.png`, png(sheet, { opaque: true }));
+console.log(`${TAG}-preview.png`);
